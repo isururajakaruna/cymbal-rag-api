@@ -126,6 +126,13 @@ class FileValidationResponse(BaseModel):
     file_exists: Optional[bool] = None
     content_analysis: Optional[ContentAnalysis] = None
     message: Optional[str] = None
+    error: Optional[str] = None
+    supported_extensions: Optional[List[str]] = None
+    provided_type: Optional[str] = None
+    provided_extension: Optional[str] = None
+    quality_score: Optional[int] = None
+    reasoning: Optional[str] = None
+    suggestion: Optional[str] = None
 
 
 class FileValidationRequest(BaseModel):

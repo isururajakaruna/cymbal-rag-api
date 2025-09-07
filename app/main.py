@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.v1 import files, search, validate
+from app.api.v1 import files, search, validate, upload
 from app.core.config import rag_config, settings
 from app.core.exceptions import RAGAPIException
 from app.models.schemas import ErrorResponse, HealthCheckResponse
@@ -52,6 +52,7 @@ app.add_middleware(
 app.include_router(files.router, prefix="/api/v1/files", tags=["files"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["search"])
 app.include_router(validate.router, prefix="/api/v1/file", tags=["file-validation"])
+app.include_router(upload.router, prefix="/api/v1", tags=["upload"])
 
 
 @app.get("/", response_model=HealthCheckResponse)

@@ -25,7 +25,10 @@ class Settings(BaseSettings):
     # Vertex AI Configuration
     vertex_ai_location: str = Field(default="us-central1", env="VERTEX_AI_LOCATION")
     vertex_ai_model_name: str = Field(
-        default="gemini-1.5-flash", env="VERTEX_AI_MODEL_NAME"
+        default="gemini-2.5-flash", env="VERTEX_AI_MODEL_NAME"
+    )
+    vertex_ai_embedding_model_name: str = Field(
+        default="gemini-embedding-001", env="VERTEX_AI_EMBEDDING_MODEL_NAME"
     )
 
     # Vector Search Configuration

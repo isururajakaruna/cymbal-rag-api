@@ -432,17 +432,13 @@ async def validate_file(
     4. Uploads to temporary storage
     """
     try:
-        print(f"DEBUG: Starting validation for file: {file.filename}")
         # Read file content
         file_content = await file.read()
         filename = file.filename
         content_type = file.content_type
         
-        print(f"DEBUG: File info - filename: {filename}, content_type: {content_type}, size: {len(file_content)}")
-        
         # Step 1: Validate file format
         format_validation = await validate_file_format(content_type, filename)
-        print(f"DEBUG: Format validation result: {format_validation}")
         if not format_validation["is_valid"]:
             return FileValidationResponse(
                 success=False,

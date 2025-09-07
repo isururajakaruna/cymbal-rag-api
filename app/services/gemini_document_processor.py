@@ -28,7 +28,7 @@ class GeminiDocumentProcessor:
         )
 
         # Initialize Gemini model
-        self.model = GenerativeModel("gemini-1.5-flash")
+        self.model = GenerativeModel(settings.vertex_ai_model_name)
 
         # Processing prompts for different content types
         self.prompts = {
