@@ -1,234 +1,276 @@
-"""File management endpoints."""
+"""File management API endpoints."""
 
-from datetime import datetime
+import os
 from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Query
+from google.cloud import storage
+from datetime import datetime
+import mimetypes
 
-from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
-                     UploadFile)
-from fastapi.responses import JSONResponse
-
-from app.api.dependencies import get_rag_service
-from app.core.config import rag_config
-from app.core.exceptions import (FileSizeExceededError, RAGAPIException,
-                                 UnsupportedFileFormatError, ValidationError)
-from app.models.schemas import (DocumentProcessingStatus, ErrorResponse,
-                                FileInfo, FileListResponse, FileUploadResponse)
-from app.services.rag_service import RAGService
+from app.core.config import settings
+from app.core.exceptions import RAGAPIException
 
 router = APIRouter()
 
 
-@router.post("/upload", response_model=FileUploadResponse)
-async def upload_file(
-    file: UploadFile = File(...), rag_service: RAGService = Depends(get_rag_service)
-):
-    """
-    Upload a new file for processing and indexing.
+class FileInfo:
+    """File information model."""
+    
+    def __init__(self, name: str, path: str, file_type: str, last_updated: datetime, size: int):
+        self.name = name
+        self.path = path
+        self.file_type = file_type
+        self.last_updated = last_updated
+        self.size = size
 
-    - **file**: File to upload (PDF, TXT, DOCX, PNG, JPG, JPEG)
-    - **description**: Upload a document to be processed and added to the vector database
-    """
+
+async def list_files_from_gcs(
+    search_query: Optional[str] = None,
+    sort_by: str = "date",
+    limit: Optional[int] = None,
+    offset: int = 0
+) -> List[FileInfo]:
+    """List files from Google Cloud Storage uploads directory."""
     try:
-        # Validate file
-        await _validate_upload_file(file)
-
-        # Read file content
-        file_content = await file.read()
-
-        # Process and store document
-        file_id = await rag_service.process_and_store_document(
-            file_content=file_content,
-            filename=file.filename,
-            content_type=file.content_type,
-        )
-
-        return FileUploadResponse(
-            file_id=file_id,
-            filename=file.filename,
-            file_size=len(file_content),
-            content_type=file.content_type,
-            upload_timestamp=datetime.utcnow(),
-            status="uploaded",
-        )
-
-    except UnsupportedFileFormatError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except FileSizeExceededError as e:
-        raise HTTPException(status_code=413, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except RAGAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.put("/{file_id}", response_model=FileUploadResponse)
-async def update_file(
-    file_id: str,
-    file: UploadFile = File(...),
-    rag_service: RAGService = Depends(get_rag_service),
-):
-    """
-    Update an existing file.
-
-    - **file_id**: ID of the file to update
-    - **file**: New file content
-    """
-    try:
-        # Validate file
-        await _validate_upload_file(file)
-
-        # Read file content
-        file_content = await file.read()
-
-        # Update document
-        success = await rag_service.update_document(
-            file_id=file_id,
-            file_content=file_content,
-            filename=file.filename,
-            content_type=file.content_type,
-        )
-
-        if not success:
-            raise HTTPException(status_code=404, detail="File not found")
-
-        return FileUploadResponse(
-            file_id=file_id,
-            filename=file.filename,
-            file_size=len(file_content),
-            content_type=file.content_type,
-            upload_timestamp=datetime.utcnow(),
-            status="updated",
-        )
-
-    except UnsupportedFileFormatError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except FileSizeExceededError as e:
-        raise HTTPException(status_code=413, detail=str(e))
-    except ValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except RAGAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.delete("/{file_id}")
-async def delete_file(file_id: str, rag_service: RAGService = Depends(get_rag_service)):
-    """
-    Delete a file and all its chunks.
-
-    - **file_id**: ID of the file to delete
-    """
-    try:
-        success = await rag_service.delete_document(file_id)
-
-        if not success:
-            raise HTTPException(status_code=404, detail="File not found")
-
-        return {"message": f"File {file_id} deleted successfully"}
-
-    except RAGAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/", response_model=FileListResponse)
-async def list_files(
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(10, ge=1, le=100, description="Number of files per page"),
-    rag_service: RAGService = Depends(get_rag_service),
-):
-    """
-    List all uploaded files with pagination.
-
-    - **page**: Page number (starting from 1)
-    - **page_size**: Number of files per page (1-100)
-    """
-    try:
-        files_data = await rag_service.list_documents()
-
-        # Apply pagination
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_files = files_data[start_idx:end_idx]
-
-        # Convert to FileInfo objects
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        storage_client = storage.Client(project=settings.google_cloud_project_id)
+        bucket = storage_client.bucket(settings.storage_bucket_name)
+        
+        # List all blobs in uploads directory
+        blobs = bucket.list_blobs(prefix="uploads/")
+        
         files = []
-        for file_data in paginated_files:
-            files.append(
-                FileInfo(
-                    file_id=file_data["file_id"],
-                    filename=file_data["filename"],
-                    file_size=file_data["size"],
-                    content_type=file_data["content_type"],
-                    upload_timestamp=file_data["created"],
-                    last_modified=file_data["updated"],
-                    status="processed",
-                )
+        for blob in blobs:
+            # Skip if it's a directory
+            if blob.name.endswith('/'):
+                continue
+                
+            # Extract filename from path
+            filename = blob.name.split('/')[-1]
+            
+            # Apply search filter if provided
+            if search_query and search_query.lower() not in filename.lower():
+                continue
+            
+            # Get file type from content type or extension
+            content_type = blob.content_type or "application/octet-stream"
+            if content_type == "application/octet-stream":
+                # Try to determine from extension
+                file_type, _ = mimetypes.guess_type(filename)
+                if file_type:
+                    content_type = file_type
+            
+            # Get file extension for display
+            file_extension = os.path.splitext(filename)[1].lower()
+            if file_extension:
+                file_type = f"{content_type} ({file_extension})"
+            else:
+                file_type = content_type
+            
+            file_info = FileInfo(
+                name=filename,
+                path=blob.name,
+                file_type=file_type,
+                last_updated=blob.time_created or blob.updated,
+                size=blob.size or 0
             )
+            files.append(file_info)
+        
+        # Sort files
+        if sort_by == "date":
+            files.sort(key=lambda x: x.last_updated, reverse=True)  # Newest first
+        elif sort_by == "name":
+            files.sort(key=lambda x: x.name.lower())
+        elif sort_by == "size":
+            files.sort(key=lambda x: x.size, reverse=True)  # Largest first
+        
+        # Apply pagination
+        if limit is not None:
+            files = files[offset:offset + limit]
+        elif offset > 0:
+            files = files[offset:]
+        
+        return files
+        
+    except Exception as e:
+        raise RAGAPIException(f"Error listing files: {str(e)}")
 
-        return FileListResponse(
-            files=files, total_count=len(files_data), page=page, page_size=page_size
-        )
 
-    except RAGAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/{file_id}", response_model=FileInfo)
-async def get_file_info(
-    file_id: str, rag_service: RAGService = Depends(get_rag_service)
+@router.get("/list")
+async def list_files(
+    search: Optional[str] = Query(None, description="Search query for filename"),
+    sort_by: str = Query("date", description="Sort by: date, name, size"),
+    limit: Optional[int] = Query(None, description="Number of files to return"),
+    offset: int = Query(0, description="Number of files to skip")
 ):
     """
-    Get information about a specific file.
-
-    - **file_id**: ID of the file
+    List uploaded files with sorting, pagination, and search.
+    
+    - **search**: Search for files by filename (case-insensitive)
+    - **sort_by**: Sort by 'date' (newest first), 'name' (alphabetical), or 'size' (largest first)
+    - **limit**: Maximum number of files to return (default: all)
+    - **offset**: Number of files to skip for pagination (default: 0)
     """
     try:
-        # This would typically involve getting file metadata from storage
-        # For now, we'll return a placeholder
-        raise HTTPException(status_code=501, detail="Not implemented yet")
-
+        # Validate sort_by parameter
+        valid_sorts = ["date", "name", "size"]
+        if sort_by not in valid_sorts:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid sort_by parameter. Must be one of: {', '.join(valid_sorts)}"
+            )
+        
+        # Validate pagination parameters
+        if limit is not None and limit < 0:
+            raise HTTPException(status_code=400, detail="Limit must be non-negative")
+        if offset < 0:
+            raise HTTPException(status_code=400, detail="Offset must be non-negative")
+        
+        files = await list_files_from_gcs(
+            search_query=search,
+            sort_by=sort_by,
+            limit=limit,
+            offset=offset
+        )
+        
+        # Convert to response format
+        file_list = []
+        for file_info in files:
+            file_list.append({
+                "name": file_info.name,
+                "path": file_info.path,
+                "file_type": file_info.file_type,
+                "last_updated": file_info.last_updated.isoformat(),
+                "size": file_info.size
+            })
+        
+        return {
+            "success": True,
+            "files": file_list,
+            "total_count": len(file_list),
+            "search_query": search,
+            "sort_by": sort_by,
+            "limit": limit,
+            "offset": offset
+        }
+        
     except RAGAPIException as e:
         raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.get("/{file_id}/status", response_model=DocumentProcessingStatus)
-async def get_processing_status(
-    file_id: str, rag_service: RAGService = Depends(get_rag_service)
-):
+@router.get("/view/{filename}")
+async def view_file(filename: str):
     """
-    Get the processing status of a file.
-
-    - **file_id**: ID of the file
+    Download a file by its filename.
+    
+    - **filename**: The name of the file to download (as returned by list API)
     """
     try:
-        # This would typically involve checking processing status
-        # For now, we'll return a placeholder
-        return DocumentProcessingStatus(
-            file_id=file_id,
-            status="completed",
-            progress_percentage=100.0,
-            chunks_processed=0,
-            total_chunks=0,
-            processing_start_time=datetime.utcnow(),
-            processing_end_time=datetime.utcnow(),
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        storage_client = storage.Client(project=settings.google_cloud_project_id)
+        bucket = storage_client.bucket(settings.storage_bucket_name)
+        
+        # Clean filename to match upload format
+        clean_filename = filename.replace(" ", "_").replace(":", "-").replace("/", "-")
+        file_path = f"uploads/{clean_filename}"
+        blob = bucket.blob(file_path)
+        
+        # Check if file exists
+        if not blob.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"File '{filename}' not found"
+            )
+        
+        # Get file content
+        file_content = blob.download_as_bytes()
+        
+        # Get file metadata
+        blob.reload()
+        content_type = blob.content_type or "application/octet-stream"
+        
+        # Return file as response
+        from fastapi.responses import Response
+        return Response(
+            content=file_content,
+            media_type=content_type,
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Length": str(len(file_content))
+            }
         )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
 
-    except RAGAPIException as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-
-async def _validate_upload_file(file: UploadFile) -> None:
-    """Validate uploaded file."""
-    # Check file size
-    max_size = rag_config.max_file_size_mb * 1024 * 1024  # Convert to bytes
-    if file.size and file.size > max_size:
-        raise FileSizeExceededError(
-            f"File size exceeds maximum allowed size of {rag_config.max_file_size_mb}MB"
-        )
-
-    # Check file type
-    if file.content_type not in rag_config.supported_formats:
-        raise UnsupportedFileFormatError(f"Unsupported file type: {file.content_type}")
-
-    # Check filename
-    if not file.filename:
-        raise ValidationError("Filename is required")
+@router.get("/embedding-stats/{filename}")
+async def get_embedding_stats(filename: str):
+    """
+    Get embedding statistics for a file.
+    
+    - **filename**: The name of the file to get stats for (as returned by list API)
+    """
+    try:
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        storage_client = storage.Client(project=settings.google_cloud_project_id)
+        bucket = storage_client.bucket(settings.storage_bucket_name)
+        
+        # Clean filename to match upload format
+        clean_filename = filename.replace(" ", "_").replace(":", "-").replace("/", "-")
+        file_path = f"uploads/{clean_filename}"
+        blob = bucket.blob(file_path)
+        
+        # Check if file exists
+        if not blob.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"File '{filename}' not found"
+            )
+        
+        # Get file metadata
+        blob.reload()
+        content_type = blob.content_type or "application/octet-stream"
+        
+        # Get file type for display
+        file_extension = os.path.splitext(filename)[1].lower()
+        if file_extension:
+            file_type = f"{content_type} ({file_extension})"
+        else:
+            file_type = content_type
+        
+        # Get datapoint IDs from blob metadata
+        datapoint_ids = []
+        if blob.metadata and "datapoint_ids" in blob.metadata:
+            datapoint_ids_str = blob.metadata["datapoint_ids"]
+            if datapoint_ids_str:
+                datapoint_ids = datapoint_ids_str.split(",")
+        
+        # Calculate embedding stats
+        total_embeddings = len(datapoint_ids)
+        
+        return {
+            "success": True,
+            "file_info": {
+                "name": filename,
+                "path": file_path,
+                "file_type": file_type,
+                "last_updated": blob.time_created.isoformat() if blob.time_created else None,
+                "size": blob.size or 0
+            },
+            "embedding_stats": {
+                "total_embeddings": total_embeddings,
+                "datapoint_ids": datapoint_ids,
+                "has_embeddings": total_embeddings > 0
+            },
+            "message": f"File has {total_embeddings} embeddings stored in Vector Search"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting embedding stats: {str(e)}")
