@@ -202,7 +202,7 @@ async def _analyze_image_with_gemini(file_content: bytes, filename: str, content
             "content_quality": {
                 "score": 1-10,
                 "is_sufficient": true/false,
-                "reasoning": "detailed explanation of why this image is or isn't suitable for corporate knowledge base"
+                "reasoning": "ONE SHORT SENTENCE explaining why this image is or isn't suitable for corporate knowledge base"
             },
             "faq_structure": {
                 "is_faq": false,
@@ -228,10 +228,26 @@ async def _analyze_image_with_gemini(file_content: bytes, filename: str, content
 async def _analyze_pdf_with_gemini(file_content: bytes, filename: str, content_type: str) -> dict:
     """Analyze PDF content using real Gemini API (first 3 pages)."""
     try:
-        # For PDFs, we'll analyze the first few pages
-        # In a real implementation, you might want to convert PDF to images first
+        from pdf2image import convert_from_bytes
+        import io
+        
+        # Convert PDF to images (first 3 pages)
+        images = convert_from_bytes(file_content, first_page=1, last_page=3)
+        
+        if not images:
+            return _get_fallback_analysis(filename, "pdf")
+        
+        # Analyze the first page with Gemini
+        image = images[0]
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        
+        # Create image part for Gemini
+        image_part = Part.from_data(data=img_byte_arr, mime_type="image/png")
+        
         analysis_prompt = f"""
-        Analyze this PDF document for its suitability for a corporate knowledge base. Consider:
+        Analyze this PDF document (first page) for its suitability for a corporate knowledge base. Consider:
         
         1. CONTENT QUALITY ASSESSMENT:
         - Does this PDF contain meaningful, professional information?
@@ -251,7 +267,7 @@ async def _analyze_pdf_with_gemini(file_content: bytes, filename: str, content_t
             "content_quality": {{
                 "score": 1-10,
                 "is_sufficient": true/false,
-                "reasoning": "detailed explanation of why this PDF is or isn't suitable for corporate knowledge base"
+                "reasoning": "ONE SHORT SENTENCE explaining why this PDF is or isn't suitable for corporate knowledge base"
             }},
             "faq_structure": {{
                 "is_faq": false,
@@ -262,8 +278,8 @@ async def _analyze_pdf_with_gemini(file_content: bytes, filename: str, content_t
         }}
         """
         
-        # Generate content using Gemini
-        response = generative_model.generate_content(analysis_prompt)
+        # Generate content using Gemini with image
+        response = generative_model.generate_content([image_part, analysis_prompt])
         analysis_text = response.text
         
         # Parse JSON response
@@ -308,7 +324,7 @@ async def _analyze_text_with_gemini(file_content: bytes, filename: str, content_
             "content_quality": {{
                 "score": 1-10,
                 "is_sufficient": true/false,
-                "reasoning": "detailed explanation of why this document is or isn't suitable for corporate knowledge base"
+                "reasoning": "ONE SHORT SENTENCE explaining why this document is or isn't suitable for corporate knowledge base"
             }},
             "faq_structure": {{
                 "is_faq": false,
@@ -457,12 +473,8 @@ async def validate_file(
         # Step 2: Check if file already exists
         file_exists = await check_file_exists_in_uploads(filename)
         if file_exists and not replace_existing:
-            return FileValidationResponse(
-                success=False,
-                error="File already exists",
-                filename=filename,
-                suggestion="Use replace_existing=true to replace the file, or upload with a different name"
-            )
+            # File exists but validation should still proceed with a warning
+            pass
         
         # Step 3: Analyze content with Gemini
         content_analysis = await analyze_content_with_gemini(file_content, filename, content_type)

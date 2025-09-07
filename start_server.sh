@@ -52,4 +52,5 @@ echo -e "${BLUE}ReDoc Documentation: http://localhost:${PORT}/redoc${NC}"
 echo ""
 
 # Use conda run to execute uvicorn in the cymbal-rag environment
-conda run -n cymbal-rag uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload
+# The --no-capture-output flag ensures logs are visible
+conda run -n cymbal-rag --no-capture-output uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload --log-level info
