@@ -29,7 +29,8 @@ async def list_files_from_gcs(
     search_query: Optional[str] = None,
     sort_by: str = "date",
     limit: Optional[int] = None,
-    offset: int = 0
+    offset: int = 0,
+    tags: Optional[List[str]] = None
 ) -> List[FileInfo]:
     """List files from Google Cloud Storage uploads directory."""
     try:
@@ -53,6 +54,19 @@ async def list_files_from_gcs(
             if search_query and search_query.lower() not in filename.lower():
                 continue
             
+            # Extract tags from blob metadata first (needed for filtering)
+            file_tags = []
+            if blob.metadata and "tags" in blob.metadata:
+                tags_str = blob.metadata["tags"]
+                if tags_str:
+                    file_tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
+            
+            # Apply tag filter if provided
+            if tags:
+                # Check if any of the requested tags match any of the file tags
+                if not any(tag in file_tags for tag in tags):
+                    continue
+            
             # Get file type from content type or extension
             content_type = blob.content_type or "application/octet-stream"
             if content_type == "application/octet-stream":
@@ -67,13 +81,6 @@ async def list_files_from_gcs(
                 file_type = f"{content_type} ({file_extension})"
             else:
                 file_type = content_type
-            
-            # Extract tags from blob metadata
-            file_tags = []
-            if blob.metadata and "tags" in blob.metadata:
-                tags_str = blob.metadata["tags"]
-                if tags_str:
-                    file_tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
             
             file_info = FileInfo(
                 name=filename,
@@ -110,15 +117,17 @@ async def list_files(
     search: Optional[str] = Query(None, description="Search query for filename"),
     sort_by: str = Query("date", description="Sort by: date, name, size"),
     limit: Optional[int] = Query(None, description="Number of files to return"),
-    offset: int = Query(0, description="Number of files to skip")
+    offset: int = Query(0, description="Number of files to skip"),
+    tags: Optional[str] = Query(None, description="Comma-separated list of tags to filter by")
 ):
     """
-    List uploaded files with sorting, pagination, and search.
+    List uploaded files with sorting, pagination, search, and tag filtering.
     
     - **search**: Search for files by filename (case-insensitive)
     - **sort_by**: Sort by 'date' (newest first), 'name' (alphabetical), or 'size' (largest first)
     - **limit**: Maximum number of files to return (default: all)
     - **offset**: Number of files to skip for pagination (default: 0)
+    - **tags**: Comma-separated list of tags to filter by (e.g., "product,hr")
     """
     try:
         # Validate sort_by parameter
@@ -135,11 +144,17 @@ async def list_files(
         if offset < 0:
             raise HTTPException(status_code=400, detail="Offset must be non-negative")
         
+        # Parse tags parameter
+        tag_list = None
+        if tags:
+            tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+        
         files = await list_files_from_gcs(
             search_query=search,
             sort_by=sort_by,
             limit=limit,
-            offset=offset
+            offset=offset,
+            tags=tag_list
         )
         
         # Convert to response format
@@ -161,7 +176,8 @@ async def list_files(
             "search_query": search,
             "sort_by": sort_by,
             "limit": limit,
-            "offset": offset
+            "offset": offset,
+            "tags_filter": tag_list
         }
         
     except RAGAPIException as e:
