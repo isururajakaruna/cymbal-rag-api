@@ -84,18 +84,16 @@ class RAGSearchService:
             ktop = search_request.ktop if search_request.ktop is not None else 10
             threshold = search_request.threshold if search_request.threshold is not None else 0.5
             
-            # Get more results than needed for better reranking
-            vector_search_limit = max(ktop * 3, 50)  # Get 3x more results for reranking
-            
+            # Get ktop results from vector search (no threshold initially)
             search_results = await self._perform_vector_search(
                 query_embedding=query_embedding,
-                ktop=vector_search_limit,  # Get more results initially
+                ktop=ktop,  # Use ktop directly
                 threshold=0.0,  # No threshold for initial search
                 file_ids=search_request.file_ids,
                 tags=search_request.tags
             )
             
-            print(f"Vector search returned {len(search_results)} candidates for reranking")
+            print(f"Vector search returned {len(search_results)} results")
             
             # Apply reranking using Google's semantic reranker
             reranked_results = await self._rerank_results(
@@ -113,8 +111,8 @@ class RAGSearchService:
             
             print(f"After threshold {threshold}: {len(filtered_results)} results")
             
-            # Limit to requested ktop
-            final_results = filtered_results[:ktop]
+            # Final results are already limited to ktop from initial search
+            final_results = filtered_results
             
             # Group results by file
             files_dict = await self._group_results_by_file(final_results)
