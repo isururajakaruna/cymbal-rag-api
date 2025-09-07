@@ -23,7 +23,7 @@ class VectorStore:
 
         # Initialize embedding model
         self.embedding_model = TextEmbeddingModel.from_pretrained(
-            "textembedding-gecko@001"
+            settings.vertex_ai_embedding_model_name
         )
 
         # Vector search configuration
