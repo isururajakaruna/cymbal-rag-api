@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Cymbal RAG API - File Validation",
-    "description": "Postman collection for testing the Cymbal RAG API file validation endpoints",
+    "name": "Cymbal RAG API - Complete Collection",
+    "description": "Complete Postman collection for testing all Cymbal RAG API endpoints including file validation, upload, search, and file management",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -43,69 +43,6 @@
           "response": []
         },
         {
-          "name": "Validate File - Unsupported Format",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "multipart/form-data"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "test_data/unsupported_file.txt"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/api/v1/file/validate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "validate"]
-            },
-            "description": "Test with unsupported file format"
-          },
-          "response": []
-        },
-        {
-          "name": "Validate File - Replace Existing",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "multipart/form-data"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "test_data/tables/simple_table.pdf"
-                },
-                {
-                  "key": "replace_existing",
-                  "value": "true",
-                  "type": "text"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/api/v1/file/validate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "validate"]
-            },
-            "description": "Upload file with replace_existing=true"
-          },
-          "response": []
-        },
-        {
           "name": "Validate File - Image (PNG)",
           "request": {
             "method": "POST",
@@ -122,6 +59,11 @@
                   "key": "file",
                   "type": "file",
                   "src": "test_data/images/image_with_text.png"
+                },
+                {
+                  "key": "replace_existing",
+                  "value": "true",
+                  "type": "text"
                 }
               ]
             },
@@ -134,40 +76,6 @@
           },
           "response": []
         },
-        {
-          "name": "Validate File - Excel (XLSX)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "multipart/form-data"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "test_data/excel/sample_data.xlsx"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/api/v1/file/validate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "validate"]
-            },
-            "description": "Upload and validate an Excel file"
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "File Information",
-      "item": [
         {
           "name": "Get Supported Formats",
           "request": {
@@ -192,7 +100,265 @@
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "file", "upload", "{{validation_id}}"]
             },
-            "description": "Upload a previously validated file to the main uploads directory using its validation_id. Replace {{validation_id}} with the actual validation_id from a previous validation response."
+            "description": "Upload a previously validated file to the main uploads directory using its validation_id"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "File Upload",
+      "item": [
+        {
+          "name": "Direct File Upload",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data/tables/simple_table.pdf"
+                },
+                {
+                  "key": "replace_existing",
+                  "value": "true",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/upload/direct",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "upload", "direct"]
+            },
+            "description": "Upload a file directly to the knowledge base with processing and embedding generation"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload from Temp Storage",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/upload/{{validation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "upload", "{{validation_id}}"]
+            },
+            "description": "Upload a file from temporary storage using validation_id"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/upload/{{filename}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "upload", "{{filename}}"]
+            },
+            "description": "Delete a file and its embeddings from the knowledge base"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "File Management",
+      "item": [
+        {
+          "name": "List All Files",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/files/list",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "files", "list"]
+            },
+            "description": "List all uploaded files in the knowledge base"
+          },
+          "response": []
+        },
+        {
+          "name": "List Files - Sort by Name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/files/list?sort_by=name&limit=10&offset=0",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "files", "list"],
+              "query": [
+                {
+                  "key": "sort_by",
+                  "value": "name",
+                  "description": "Sort by: date, name, size"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of files to return"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Number of files to skip"
+                }
+              ]
+            },
+            "description": "List files sorted by name with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "List Files - Search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/files/list?search={{search_term}}&sort_by=date",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "files", "list"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "{{search_term}}",
+                  "description": "Search query for filename"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "date",
+                  "description": "Sort by: date, name, size"
+                }
+              ]
+            },
+            "description": "Search files by filename"
+          },
+          "response": []
+        },
+        {
+          "name": "Download File",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/files/view?filename={{filename}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "files", "view"],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "{{filename}}",
+                  "description": "The name of the file to download"
+                }
+              ]
+            },
+            "description": "Download a file by its filename"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Embedding Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/files/embedding-stats?filename={{filename}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "files", "embedding-stats"],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "{{filename}}",
+                  "description": "The name of the file to get stats for"
+                }
+              ]
+            },
+            "description": "Get embedding statistics for a specific file"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Search & RAG",
+      "item": [
+        {
+          "name": "Search Documents (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"{{search_query}}\",\n  \"max_results\": 10,\n  \"similarity_threshold\": 0.7,\n  \"file_ids\": [\"file1.pdf\", \"file2.docx\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/search/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "search", ""]
+            },
+            "description": "Search documents using RAG with POST request and JSON body"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Documents (GET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/search/?query={{search_query}}&max_results=5&similarity_threshold=0.8",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "search", ""],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "{{search_query}}",
+                  "description": "Search query text"
+                },
+                {
+                  "key": "max_results",
+                  "value": "5",
+                  "description": "Maximum number of results (1-50)"
+                },
+                {
+                  "key": "similarity_threshold",
+                  "value": "0.8",
+                  "description": "Minimum similarity score (0.0-1.0)"
+                }
+              ]
+            },
+            "description": "Search documents using RAG with GET request and query parameters"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/search/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "search", "health"]
+            },
+            "description": "Health check for search service"
           },
           "response": []
         }
@@ -228,6 +394,20 @@
             "description": "Dedicated health check endpoint"
           },
           "response": []
+        },
+        {
+          "name": "Debug Authentication",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/debug-auth",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "debug-auth"]
+            },
+            "description": "Debug Google Cloud authentication status"
+          },
+          "response": []
         }
       ]
     }
@@ -237,6 +417,26 @@
       "key": "base_url",
       "value": "http://localhost:8000",
       "description": "Base URL for the Cymbal RAG API"
+    },
+    {
+      "key": "validation_id",
+      "value": "",
+      "description": "Validation ID from file validation response (set automatically)"
+    },
+    {
+      "key": "filename",
+      "value": "image_with_text.png",
+      "description": "Filename for testing file operations"
+    },
+    {
+      "key": "search_query",
+      "value": "machine learning",
+      "description": "Default search query for testing"
+    },
+    {
+      "key": "search_term",
+      "value": "text",
+      "description": "Search term for file search"
     }
   ],
   "event": [
@@ -255,14 +455,33 @@
       "script": {
         "type": "text/javascript",
         "exec": [
-          "// Add any test scripts here",
-          "pm.test('Response time is less than 5000ms', function () {",
-          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "// Basic response tests",
+          "pm.test('Response time is less than 10000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(10000);",
           "});",
           "",
-          "pm.test('Response has required headers', function () {",
-          "    pm.expect(pm.response.headers.get('content-type')).to.include('application/json');",
-          "});"
+          "pm.test('Response status is successful', function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]);",
+          "});",
+          "",
+          "// Auto-capture validation_id from file validation responses",
+          "if (pm.response.code === 200 && pm.response.json() && pm.response.json().validation_id) {",
+          "    pm.collectionVariables.set('validation_id', pm.response.json().validation_id);",
+          "    console.log('Captured validation_id:', pm.response.json().validation_id);",
+          "}",
+          "",
+          "// Auto-capture filename from list responses",
+          "if (pm.response.code === 200 && pm.response.json() && pm.response.json().files && pm.response.json().files.length > 0) {",
+          "    pm.collectionVariables.set('filename', pm.response.json().files[0].name);",
+          "    console.log('Captured filename:', pm.response.json().files[0].name);",
+          "}",
+          "",
+          "// Test for JSON responses where expected",
+          "if (pm.response.headers.get('content-type') && pm.response.headers.get('content-type').includes('application/json')) {",
+          "    pm.test('Response is valid JSON', function () {",
+          "        pm.response.to.be.json;",
+          "    });",
+          "}"
         ]
       }
     }

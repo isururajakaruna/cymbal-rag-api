@@ -160,8 +160,8 @@ async def list_files(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
-@router.get("/view/{filename}")
-async def view_file(filename: str):
+@router.get("/view")
+async def view_file(filename: str = Query(..., description="The name of the file to download (as returned by list API)")):
     """
     Download a file by its filename.
     
@@ -208,8 +208,8 @@ async def view_file(filename: str):
         raise HTTPException(status_code=500, detail=f"Error downloading file: {str(e)}")
 
 
-@router.get("/embedding-stats/{filename}")
-async def get_embedding_stats(filename: str):
+@router.get("/embedding-stats")
+async def get_embedding_stats(filename: str = Query(..., description="The name of the file to get stats for (as returned by list API)")):
     """
     Get embedding statistics for a file.
     
