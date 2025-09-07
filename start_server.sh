@@ -27,10 +27,16 @@ if ! conda info --envs | grep -q "cymbal-rag"; then
     exit 1
 fi
 
-# Activate conda environment and start server
-echo -e "${GREEN}Activating cymbal-rag environment...${NC}"
-source $(conda info --base)/etc/profile.d/conda.sh
-conda activate cymbal-rag
+# Kill any existing processes using the port
+echo -e "${YELLOW}Checking for existing processes on port ${PORT}...${NC}"
+if lsof -ti:${PORT} > /dev/null 2>&1; then
+    echo -e "${YELLOW}Found existing processes on port ${PORT}. Killing them...${NC}"
+    lsof -ti:${PORT} | xargs kill -9 2>/dev/null
+    sleep 2
+    echo -e "${GREEN}Port ${PORT} is now free.${NC}"
+else
+    echo -e "${GREEN}Port ${PORT} is available.${NC}"
+fi
 
 # Set environment variables for Google Cloud
 echo -e "${GREEN}Setting up Google Cloud environment variables...${NC}"
@@ -38,21 +44,12 @@ export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/service-account-key.json"
 export GOOGLE_CLOUD_PROJECT_ID="cymbol-demo"
 export STORAGE_BUCKET_NAME="cymbal-rag-store"
 
-# Check if required packages are installed
-echo -e "${GREEN}Checking dependencies...${NC}"
-python -c "import fastapi, uvicorn, vertexai" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Error: Required packages not installed!${NC}"
-    echo "Please install dependencies:"
-    echo "pip install -r requirements.txt"
-    exit 1
-fi
-
-# Start the server
-echo -e "${GREEN}Starting FastAPI server...${NC}"
+# Start the server with conda environment
+echo -e "${GREEN}Starting FastAPI server with cymbal-rag environment...${NC}"
 echo -e "${BLUE}Server will be available at: http://localhost:${PORT}${NC}"
 echo -e "${BLUE}API Documentation: http://localhost:${PORT}/docs${NC}"
 echo -e "${BLUE}ReDoc Documentation: http://localhost:${PORT}/redoc${NC}"
 echo ""
 
-uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload
+# Use conda run to execute uvicorn in the cymbal-rag environment
+conda run -n cymbal-rag uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload

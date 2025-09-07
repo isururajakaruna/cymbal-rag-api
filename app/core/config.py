@@ -1,5 +1,9 @@
 """Configuration management for the RAG API."""
 
+# Load environment variables from .env file FIRST
+from dotenv import load_dotenv
+load_dotenv()
+
 import json
 from pathlib import Path
 from typing import Any, Dict, List

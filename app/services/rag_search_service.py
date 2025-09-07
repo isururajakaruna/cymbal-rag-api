@@ -62,25 +62,32 @@ class RAGSearchService:
             RAGSearchResponse with file list, matched chunks, and RAG response
         """
         start_time = time.time()
+        # Search parameters logged for debugging
         
         try:
-            # Set up Google Cloud credentials
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+            # Google Cloud credentials are loaded from .env file via config.py
             
             # Get query embedding
             query_embedding = await self._get_query_embedding(search_request.query)
             
             # Perform vector search
             ktop = search_request.ktop if search_request.ktop is not None else 10
-            threshold = search_request.threshold if search_request.threshold is not None else 0.7
-            print(f"Search parameters: ktop={ktop}, threshold={threshold}")
+            threshold = search_request.threshold if search_request.threshold is not None else 0.5  # Distance threshold (higher = more similar)
+            # Search parameters: ktop={ktop}, threshold={threshold}
             
             search_results = await self._perform_vector_search(
                 query_embedding=query_embedding,
                 ktop=ktop,
                 threshold=threshold,
-                file_ids=search_request.file_ids
+                file_ids=search_request.file_ids,
+                tags=search_request.tags
             )
+            
+            # Sort by distance (descending - higher distance = more similar) and limit to ktop
+            search_results.sort(key=lambda x: x.distance, reverse=True)  # distance (higher = better)
+            search_results = search_results[:ktop]  # Limit to ktop results
+            
+            # Results sorted and limited to {len(search_results)} items
             
             # Group results by file
             files_dict = await self._group_results_by_file(search_results)
@@ -118,11 +125,20 @@ class RAGSearchService:
     async def _get_query_embedding(self, query: str) -> List[float]:
         """Get embedding for the search query using Gemini embedding model."""
         try:
-            # Use the embedding model directly
-            from vertexai.language_models import TextEmbeddingModel
-            model = TextEmbeddingModel.from_pretrained(settings.vertex_ai_embedding_model_name)
-            embeddings = model.get_embeddings([query])
-            return embeddings[0].values
+            # Generating embedding for query using {settings.vertex_ai_embedding_model_name}
+            
+            # Use Google Generative AI with QUESTION_ANSWERING task type
+            import google.generativeai as genai
+            result = genai.embed_content(
+                model=settings.vertex_ai_embedding_model_name,  # Use gemini-embedding-001 from .env
+                content=query,
+                task_type="QUESTION_ANSWERING"
+            )
+            query_embedding = result['embedding']
+            
+            # Query embedding generated: {len(query_embedding)} dimensions
+            
+            return query_embedding
         except Exception as e:
             raise RAGAPIException(f"Error generating query embedding: {str(e)}")
     
@@ -131,7 +147,8 @@ class RAGSearchService:
         query_embedding: List[float], 
         ktop: int, 
         threshold: float,
-        file_ids: Optional[List[str]] = None
+        file_ids: Optional[List[str]] = None,
+        tags: Optional[List[str]] = None
     ) -> List[SearchResult]:
         """Perform vector search using the existing VectorSearchService."""
         try:
@@ -147,21 +164,22 @@ class RAGSearchService:
                 index_id=self.index_id,
                 endpoint_id=settings.vector_search_deployed_index_id,  # This is the deployed index ID
                 top_k=ktop,
-                filter_expression=None
+                filter_expression=None,
+                tags=tags
             )
             
             # Process results
             print(f"Vector search returned {len(results)} results")
             search_results = []
             for i, result in enumerate(results):
-                # Check similarity threshold
-                similarity_score = 1 - result["score"]  # Convert distance to similarity
-                print(f"Result {i}: similarity={similarity_score:.3f}, threshold={threshold}")
+                # Check distance threshold (higher distance = more similar)
+                distance_score = result["score"]  # score is now distance
+                print(f"Result {i}: distance={distance_score:.3f}, threshold={threshold}")
                 
-                if similarity_score < threshold:
-                    print(f"  Skipping due to low similarity")
+                if distance_score < threshold:
+                    print(f"  Skipping due to low distance (low similarity)")
                     continue
-                
+                    
                 metadata = result.get("metadata", {})
                 print(f"  Metadata: {metadata}")
                 
@@ -175,7 +193,7 @@ class RAGSearchService:
                     file_id=metadata.get("filename", ""),
                     filename=metadata.get("filename", ""),
                     chunk_index=int(metadata.get("chunk_index", 0)),
-                    similarity_score=similarity_score,
+                    distance=distance_score,  # Distance (lower = better)
                     metadata=metadata
                 )
                 search_results.append(search_result)
@@ -224,12 +242,20 @@ class RAGSearchService:
                     else:
                         file_type = content_type
                     
+                    # Extract tags from blob metadata
+                    file_tags = []
+                    if blob.metadata and "tags" in blob.metadata:
+                        tags_str = blob.metadata["tags"]
+                        if tags_str:
+                            file_tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
+                    
                     file_info = RAGSearchFileInfo(
                         name=filename,
                         path=file_path,
                         file_type=file_type,
                         last_updated=blob.updated,
                         size=blob.size,
+                        tags=file_tags,
                         matched_chunks=chunks
                     )
                     files_with_metadata.append(file_info)
@@ -254,14 +280,14 @@ class RAGSearchService:
             context = "\n".join(context_parts)
             
             # Create prompt for Gemini
-            prompt = f"""Based on the following context from our knowledge base, please provide a comprehensive answer to the user's question.
+            prompt = f"""Based on the following context from our knowledge base, please provide a clear and concise answer to the user's question.
 
 Context:
 {context}
 
 User Question: {query}
 
-Please provide a detailed and accurate answer based on the context above. If the context doesn't contain enough information to fully answer the question, please say so and provide what information is available. Include relevant details and cite the sources when appropriate."""
+Please provide a direct answer based on the context above. If the context doesn't contain enough information to answer the question, simply state that the information is not available in the knowledge base. Keep your response focused and avoid mentioning specific chunks or sources."""
 
             # Generate response using Gemini
             response = self.gemini_model.generate_content(prompt)

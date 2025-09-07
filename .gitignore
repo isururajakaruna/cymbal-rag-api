@@ -80,3 +80,7 @@ credentials.json
 
 # Conda
 .conda/
+
+# Test results
+vector_search_evaluation_results.json
+distance_distribution.png

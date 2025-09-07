@@ -16,12 +16,13 @@ router = APIRouter()
 class FileInfo:
     """File information model."""
     
-    def __init__(self, name: str, path: str, file_type: str, last_updated: datetime, size: int):
+    def __init__(self, name: str, path: str, file_type: str, last_updated: datetime, size: int, tags: List[str] = None):
         self.name = name
         self.path = path
         self.file_type = file_type
         self.last_updated = last_updated
         self.size = size
+        self.tags = tags or []
 
 
 async def list_files_from_gcs(
@@ -32,7 +33,7 @@ async def list_files_from_gcs(
 ) -> List[FileInfo]:
     """List files from Google Cloud Storage uploads directory."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -67,12 +68,20 @@ async def list_files_from_gcs(
             else:
                 file_type = content_type
             
+            # Extract tags from blob metadata
+            file_tags = []
+            if blob.metadata and "tags" in blob.metadata:
+                tags_str = blob.metadata["tags"]
+                if tags_str:
+                    file_tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
+            
             file_info = FileInfo(
                 name=filename,
                 path=blob.name,
                 file_type=file_type,
                 last_updated=blob.time_created or blob.updated,
-                size=blob.size or 0
+                size=blob.size or 0,
+                tags=file_tags
             )
             files.append(file_info)
         
@@ -141,7 +150,8 @@ async def list_files(
                 "path": file_info.path,
                 "file_type": file_info.file_type,
                 "last_updated": file_info.last_updated.isoformat(),
-                "size": file_info.size
+                "size": file_info.size,
+                "tags": file_info.tags
             })
         
         return {
@@ -168,7 +178,7 @@ async def view_file(filename: str = Query(..., description="The name of the file
     - **filename**: The name of the file to download (as returned by list API)
     """
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -216,7 +226,7 @@ async def get_embedding_stats(filename: str = Query(..., description="The name o
     - **filename**: The name of the file to get stats for (as returned by list API)
     """
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         

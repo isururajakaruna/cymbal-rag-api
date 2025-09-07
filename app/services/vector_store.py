@@ -31,18 +31,25 @@ class VectorStore:
         self.endpoint_id = settings.vector_search_index_endpoint_id
         self.dimensions = rag_config.vector_search.get("dimensions", 768)
 
-    async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+    async def generate_embeddings(self, texts: List[str], task_type: str = "RETRIEVAL_DOCUMENT") -> List[List[float]]:
         """
-        Generate embeddings for a list of texts.
+        Generate embeddings for a list of texts with proper task type.
 
         Args:
             texts: List of text strings to embed
+            task_type: Task type for embedding ("RETRIEVAL_DOCUMENT" or "RETRIEVAL_QUERY")
 
         Returns:
             List of embedding vectors
         """
         try:
-            embeddings = self.embedding_model.get_embeddings(texts)
+            from google.generativeai import types
+            
+            # Use the proper embedding configuration
+            embeddings = self.embedding_model.get_embeddings(
+                texts,
+                task_type=task_type
+            )
             return [embedding.values for embedding in embeddings]
         except Exception as e:
             raise VectorSearchError(f"Failed to generate embeddings: {str(e)}")

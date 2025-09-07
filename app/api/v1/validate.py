@@ -38,7 +38,7 @@ ALL_SUPPORTED_EXTENSIONS = [ext for extensions in SUPPORTED_EXTENSIONS.values() 
 async def check_file_exists_in_uploads(filename: str) -> bool:
     """Check if file already exists in uploads directory."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -52,7 +52,7 @@ async def check_file_exists_in_uploads(filename: str) -> bool:
 async def upload_to_temp_storage(file_content: bytes, filename: str, validation_id: str = None) -> str:
     """Upload file to _tmp directory in Google Cloud Storage."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -85,7 +85,7 @@ async def upload_to_temp_storage(file_content: bytes, filename: str, validation_
 async def move_from_temp_to_uploads(temp_path: str, filename: str) -> str:
     """Move file from temp directory to uploads directory in Google Cloud Storage."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -105,7 +105,7 @@ async def move_from_temp_to_uploads(temp_path: str, filename: str) -> str:
 async def get_temp_file_info(validation_id: str) -> dict:
     """Get information about a file in temp storage by validation_id."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -388,7 +388,7 @@ async def analyze_content_with_gemini(file_content: bytes, filename: str, conten
     """Analyze file content using Gemini for quality and FAQ validation."""
     try:
         # Set environment variable for Google Cloud authentication
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         
         # Check for obvious low-quality indicators first (quick filename check)
         filename_lower = filename.lower()
@@ -434,17 +434,17 @@ async def validate_file(
     4. Uploads to temporary storage
     """
     try:
-        print(f"DEBUG: Starting validation for file: {file.filename}")
+        # Starting validation for file: {file.filename}
         # Read file content
         file_content = await file.read()
         filename = file.filename
         content_type = file.content_type
         
-        print(f"DEBUG: File info - filename: {filename}, content_type: {content_type}, size: {len(file_content)}")
+        # File info - filename: {filename}, content_type: {content_type}, size: {len(file_content)}
         
         # Step 1: Validate file format
         format_validation = await validate_file_format(content_type, filename)
-        print(f"DEBUG: Format validation result: {format_validation}")
+        # Format validation result: {format_validation}
         if not format_validation["is_valid"]:
             return FileValidationResponse(
                 success=False,

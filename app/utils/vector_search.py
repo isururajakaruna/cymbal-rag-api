@@ -107,7 +107,8 @@ class VectorSearchService:
         index_id: str,
         endpoint_id: str,
         top_k: int = 5,
-        filter_expression: Optional[str] = None
+        filter_expression: Optional[str] = None,
+        tags: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Search for similar embeddings in Vector Search.
@@ -123,6 +124,7 @@ class VectorSearchService:
             List of search results
         """
         try:
+            # Vector search: {len(query_embedding)}-dim query, k={top_k}
             print(f"Searching Vector Search with {len(query_embedding)}-dim vector")
             print(f"  Top K: {top_k}")
             print(f"  Filter: {filter_expression}")
@@ -158,11 +160,15 @@ class VectorSearchService:
             
             # Process results
             results = []
+            # Found {len(response.nearest_neighbors)} query results with {sum(len(qr.neighbors) for qr in response.nearest_neighbors)} neighbors
             for query_result in response.nearest_neighbors:
                 for neighbor in query_result.neighbors:
+                    # Use distance directly (cosine distance = 1 - cosine similarity)
+                    # Lower distance = more similar
                     result = {
                         "id": neighbor.datapoint.datapoint_id,
-                        "score": neighbor.distance,
+                        "score": neighbor.distance,  # Use distance as score (lower = better)
+                        "distance": neighbor.distance,  # Keep for consistency
                         "metadata": {}
                     }
                     
@@ -180,7 +186,22 @@ class VectorSearchService:
                     
                     results.append(result)
             
-            print(f"Found {len(results)} similar embeddings")
+            # Apply tag filtering if tags are provided
+            if tags:
+                filtered_results = []
+                for result in results:
+                    result_tags = result.get("metadata", {}).get("tags", "")
+                    if result_tags:
+                        result_tag_list = [tag.strip() for tag in result_tags.split(",") if tag.strip()]
+                        # Check if any of the requested tags match any of the result tags
+                        if any(tag in result_tag_list for tag in tags):
+                            filtered_results.append(result)
+                    else:
+                        # If no tags in result, include it (for backward compatibility)
+                        filtered_results.append(result)
+                results = filtered_results
+            
+            # Found {len(results)} similar embeddings
             return results
             
         except Exception as e:

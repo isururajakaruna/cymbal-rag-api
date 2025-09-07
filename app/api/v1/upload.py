@@ -44,7 +44,7 @@ def get_embedding_model():
 async def get_file_from_temp_storage(validation_id: str) -> dict:
     """Get file information from temporary storage by validation_id."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -75,7 +75,7 @@ async def get_file_from_temp_storage(validation_id: str) -> dict:
 async def download_file_from_gcs(gcs_path: str) -> bytes:
     """Download file content from Google Cloud Storage."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -85,10 +85,10 @@ async def download_file_from_gcs(gcs_path: str) -> bytes:
         raise RAGAPIException(f"Error downloading file from GCS: {str(e)}")
 
 
-async def upload_file_to_uploads(file_content: bytes, filename: str, content_type: str, datapoint_ids: List[str] = None) -> str:
+async def upload_file_to_uploads(file_content: bytes, filename: str, content_type: str, datapoint_ids: List[str] = None, tags: List[str] = None) -> str:
     """Upload file to the uploads directory in Google Cloud Storage."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -99,9 +99,15 @@ async def upload_file_to_uploads(file_content: bytes, filename: str, content_typ
         blob = bucket.blob(upload_path)
         blob.upload_from_string(file_content, content_type=content_type)
         
-        # Store datapoint IDs in blob metadata for later deletion
+        # Store datapoint IDs and tags in blob metadata
+        metadata = {}
         if datapoint_ids:
-            blob.metadata = {"datapoint_ids": ",".join(datapoint_ids)}
+            metadata["datapoint_ids"] = ",".join(datapoint_ids)
+        if tags:
+            metadata["tags"] = ",".join(tags)
+        
+        if metadata:
+            blob.metadata = metadata
             blob.patch()
         
         return upload_path
@@ -112,7 +118,7 @@ async def upload_file_to_uploads(file_content: bytes, filename: str, content_typ
 async def delete_file_from_gcs(gcs_path: str) -> bool:
     """Delete file from Google Cloud Storage."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -124,7 +130,7 @@ async def delete_file_from_gcs(gcs_path: str) -> bool:
         return False
 
 
-async def process_and_embed_document(file_content: bytes, filename: str, content_type: str) -> Dict[str, Any]:
+async def process_and_embed_document(file_content: bytes, filename: str, content_type: str, tags: List[str] = None) -> Dict[str, Any]:
     """Process document and create embeddings for Vector Search."""
     try:
         # Process document using Gemini processor
@@ -151,9 +157,20 @@ async def process_and_embed_document(file_content: bytes, filename: str, content
         # Generate embeddings for each chunk
         embeddings = []
         model = get_embedding_model()
+        # Processing {len(chunks)} chunks for file: {filename}
+        
         for i, chunk in enumerate(chunks):
-            # Generate embedding using Vertex AI
-            embedding = model.get_embeddings([chunk.content])[0].values
+            # Chunk {i} processing
+            
+            # Generate embedding using Vertex AI with RETRIEVAL_DOCUMENT task type
+            import google.generativeai as genai
+            result = genai.embed_content(
+                model=settings.vertex_ai_embedding_model_name,  # Use gemini-embedding-001 from .env
+                content=chunk.content,
+                task_type="RETRIEVAL_DOCUMENT"
+            )
+            embedding = result['embedding']
+            # Chunk {i} embedding generated: {len(embedding)} dimensions
             
             # Prepare data for Vector Search
             chunk_data = {
@@ -166,7 +183,8 @@ async def process_and_embed_document(file_content: bytes, filename: str, content
                     "content_type": content_type,
                     "chunk_index": i,
                     "total_chunks": len(chunks),
-                    "content": chunk.content  # Include content in metadata for vector search
+                    "content": chunk.content,  # Include content in metadata for vector search
+                    "tags": ",".join(tags) if tags else ""  # Add tags to metadata
                 },
                 "embedding": embedding
             }
@@ -200,7 +218,7 @@ async def store_embeddings_in_vector_search(embeddings: List[Dict[str, Any]], fi
 async def get_datapoint_ids_from_file(filename: str) -> List[str]:
     """Get datapoint IDs from file metadata in GCS."""
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         
@@ -258,7 +276,8 @@ async def remove_existing_embeddings(filename: str) -> bool:
 @router.post("/upload/direct")
 async def upload_direct_file(
     file: UploadFile = File(...),
-    replace_existing: bool = Form(True)
+    replace_existing: bool = Form(True),
+    tags: str = Form("")
 ):
     """
     Upload a file directly to the knowledge base.
@@ -275,6 +294,9 @@ async def upload_direct_file(
         file_content = await file.read()
         filename = file.filename
         content_type = file.content_type
+        
+        # Parse tags (comma-separated string)
+        file_tags = [tag.strip() for tag in tags.split(",") if tag.strip()] if tags else []
         
         # Handle content type mapping for files detected as application/octet-stream
         if content_type == "application/octet-stream" or not content_type:
@@ -301,7 +323,8 @@ async def upload_direct_file(
         processing_result = await process_and_embed_document(
             file_content=file_content,
             filename=filename,
-            content_type=content_type
+            content_type=content_type,
+            tags=file_tags
         )
         
         # Store embeddings in Vector Search
@@ -321,7 +344,8 @@ async def upload_direct_file(
             file_content=file_content,
             filename=filename,
             content_type=content_type,
-            datapoint_ids=datapoint_ids
+            datapoint_ids=datapoint_ids,
+            tags=file_tags
         )
         
         clean_filename = filename.replace(" ", "_").replace(":", "-").replace("/", "-")
@@ -392,7 +416,8 @@ async def upload_from_temp_storage(validation_id: str = Path(...)):
         processing_result = await process_and_embed_document(
             file_content=file_content,
             filename=temp_file_info["filename"],
-            content_type=content_type
+            content_type=content_type,
+            tags=[]  # No tags for temp uploads for now
         )
         
         # Store embeddings in Vector Search
@@ -415,7 +440,8 @@ async def upload_from_temp_storage(validation_id: str = Path(...)):
             file_content=file_content,
             filename=temp_file_info["filename"],
             content_type=content_type,
-            datapoint_ids=datapoint_ids
+            datapoint_ids=datapoint_ids,
+            tags=[]  # No tags for temp uploads for now
         )
         
         # Delete file from temp storage
@@ -453,7 +479,7 @@ async def get_upload_status(filename: str = Path(...)):
     - Last modified date
     """
     try:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+        # Google Cloud credentials are loaded from .env file via config.py
         storage_client = storage.Client(project=settings.google_cloud_project_id)
         bucket = storage_client.bucket(settings.storage_bucket_name)
         

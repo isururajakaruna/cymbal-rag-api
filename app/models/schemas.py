@@ -28,6 +28,7 @@ class FileInfo(BaseModel):
     last_modified: datetime
     status: str
     chunks_count: Optional[int] = None
+    tags: Optional[List[str]] = Field(default=[], description="Tags associated with the file")
 
 
 class FileListResponse(BaseModel):
@@ -46,6 +47,7 @@ class SearchRequest(BaseModel):
     ktop: Optional[int] = Field(default=None, ge=1, le=50, description="Number of top results to retrieve")
     threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Similarity threshold")
     file_ids: Optional[List[str]] = Field(default=None, max_items=10, description="Optional list of file IDs to search within")
+    tags: Optional[List[str]] = Field(default=None, max_items=10, description="Optional list of tags to filter by")
 
 
 class SearchResult(BaseModel):
@@ -55,7 +57,7 @@ class SearchResult(BaseModel):
     file_id: str
     filename: str
     chunk_index: int
-    similarity_score: float
+    distance: float  # Distance score (lower = more similar)
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -66,6 +68,7 @@ class RAGSearchFileInfo(BaseModel):
     file_type: str
     last_updated: datetime
     size: int
+    tags: Optional[List[str]] = Field(default=[], description="Tags associated with the file")
     matched_chunks: List[SearchResult] = Field(default_factory=list)
 
 
