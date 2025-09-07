@@ -19,6 +19,7 @@ from app.models.schemas import FileValidationResponse, ContentAnalysis
 from app.services.gemini_document_processor import GeminiDocumentProcessor
 from app.utils.chunking import ChunkingService
 from app.utils.vector_search import VectorSearchService
+import google.generativeai as genai
 import json
 import asyncio
 
@@ -130,9 +131,75 @@ async def delete_file_from_gcs(gcs_path: str) -> bool:
         return False
 
 
+async def generate_document_title(file_content: bytes, filename: str, content_type: str) -> str:
+    """Generate a title for the document using Gemini based on first 1000 characters."""
+    try:
+        from vertexai.generative_models import GenerativeModel
+        import vertexai
+        
+        # Initialize Vertex AI
+        vertexai.init(project=settings.google_cloud_project_id, location=settings.google_cloud_region)
+        generative_model = GenerativeModel(settings.vertex_ai_model_name)
+        
+        # Get first 1000 characters of the document content
+        if content_type == "application/pdf":
+            # For PDFs, we need to process them first to get text content
+            from pdf2image import convert_from_bytes
+            import io
+            
+            images = convert_from_bytes(file_content, first_page=1, last_page=1)
+            if images:
+                # Convert first page to text using Gemini
+                image = images[0]
+                img_byte_arr = io.BytesIO()
+                image.save(img_byte_arr, format='PNG')
+                img_byte_arr = img_byte_arr.getvalue()
+                
+                from vertexai.generative_models import Part
+                image_part = Part.from_data(data=img_byte_arr, mime_type="image/png")
+                
+                prompt = f"""
+                Extract the main title or heading from this document. 
+                If there's no clear title, generate a descriptive title based on the content.
+                Return only the title, nothing else.
+                """
+                
+                response = generative_model.generate_content([image_part, prompt])
+                return response.text.strip()
+        else:
+            # For text-based files, get first 1000 characters
+            try:
+                content_text = file_content.decode('utf-8')
+            except UnicodeDecodeError:
+                # For binary files, use filename as fallback
+                return os.path.splitext(filename)[0]
+            
+            # Limit to first 1000 characters
+            sample_content = content_text[:1000]
+            
+            prompt = f"""
+            Based on this document content, generate a concise and descriptive title:
+            
+            Content: {sample_content}
+            
+            Return only the title, nothing else.
+            """
+            
+            response = generative_model.generate_content(prompt)
+            return response.text.strip()
+            
+    except Exception as e:
+        print(f"Error generating title for {filename}: {e}")
+        # Fallback to filename without extension
+        return os.path.splitext(filename)[0]
+
+
 async def process_and_embed_document(file_content: bytes, filename: str, content_type: str, tags: List[str] = None) -> Dict[str, Any]:
     """Process document and create embeddings for Vector Search."""
     try:
+        # Generate document title once for all chunks
+        document_title = await generate_document_title(file_content, filename, content_type)
+        
         # Process document using Gemini processor
         processed_docs = await document_processor.process_document(
             file_content=file_content,
@@ -163,11 +230,11 @@ async def process_and_embed_document(file_content: bytes, filename: str, content
             # Chunk {i} processing
             
             # Generate embedding using Vertex AI with RETRIEVAL_DOCUMENT task type
-            import google.generativeai as genai
             result = genai.embed_content(
                 model=settings.vertex_ai_embedding_model_name,  # Use gemini-embedding-001 from .env
                 content=chunk.content,
-                task_type="RETRIEVAL_DOCUMENT"
+                task_type="RETRIEVAL_DOCUMENT",
+                title=document_title  # Add document title to embedding
             )
             embedding = result['embedding']
             # Chunk {i} embedding generated: {len(embedding)} dimensions
@@ -184,7 +251,8 @@ async def process_and_embed_document(file_content: bytes, filename: str, content
                     "chunk_index": i,
                     "total_chunks": len(chunks),
                     "content": chunk.content,  # Include content in metadata for vector search
-                    "tags": ",".join(tags) if tags else ""  # Add tags to metadata
+                    "tags": ",".join(tags) if tags else "",  # Add tags to metadata
+                    "title": document_title  # Add document title to metadata
                 },
                 "embedding": embedding
             }

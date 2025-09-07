@@ -1,4 +1,4 @@
-"""Enhanced RAG search service with real vector search integration."""
+"""Enhanced RAG search service with real vector search integration and reranking."""
 
 import os
 import time
@@ -10,8 +10,15 @@ from google.cloud import storage
 from google.cloud import aiplatform
 from google.cloud.aiplatform import MatchingEngineIndex, MatchingEngineIndexEndpoint
 from google.cloud.aiplatform_v1.types import IndexDatapoint
+try:
+    from google.cloud import discoveryengine_v1 as discoveryengine
+    DISCOVERY_ENGINE_AVAILABLE = True
+except ImportError:
+    discoveryengine = None
+    DISCOVERY_ENGINE_AVAILABLE = False
 import vertexai
 from vertexai.generative_models import GenerativeModel
+import google.generativeai as genai
 
 from app.core.config import settings
 from app.core.exceptions import RAGAPIException
@@ -24,7 +31,7 @@ from app.models.schemas import (
 
 
 class RAGSearchService:
-    """Enhanced RAG search service with real vector search and Gemini integration."""
+    """Enhanced RAG search service with real vector search, reranking, and Gemini integration."""
     
     def __init__(self):
         """Initialize the RAG search service."""
@@ -47,13 +54,19 @@ class RAGSearchService:
         vertexai.init(project=self.project_id, location=self.location)
         self.gemini_model = GenerativeModel(settings.vertex_ai_model_name)
         
+        # Initialize Discovery Engine client for reranking (if available)
+        if DISCOVERY_ENGINE_AVAILABLE and discoveryengine:
+            self.discovery_client = discoveryengine.RankServiceClient()
+        else:
+            self.discovery_client = None
+        
         print(f"RAGSearchService initialized for project {self.project_id}")
         print(f"Index: {self.index_name}")
         print(f"Endpoint: {self.endpoint_name}")
     
     async def search_documents(self, search_request: SearchRequest) -> RAGSearchResponse:
         """
-        Search documents using RAG with vector search and Gemini response generation.
+        Search documents using RAG with vector search, reranking, and Gemini response generation.
         
         Args:
             search_request: Search parameters including query, ktop, threshold
@@ -62,36 +75,49 @@ class RAGSearchService:
             RAGSearchResponse with file list, matched chunks, and RAG response
         """
         start_time = time.time()
-        # Search parameters logged for debugging
         
         try:
-            # Google Cloud credentials are loaded from .env file via config.py
-            
             # Get query embedding
             query_embedding = await self._get_query_embedding(search_request.query)
             
-            # Perform vector search
+            # Perform vector search (no threshold initially to get more candidates)
             ktop = search_request.ktop if search_request.ktop is not None else 10
-            threshold = search_request.threshold if search_request.threshold is not None else 0.5  # Distance threshold (higher = more similar)
-            # Search parameters: ktop={ktop}, threshold={threshold}
+            threshold = search_request.threshold if search_request.threshold is not None else 0.5
+            
+            # Get more results than needed for better reranking
+            vector_search_limit = max(ktop * 3, 50)  # Get 3x more results for reranking
             
             search_results = await self._perform_vector_search(
                 query_embedding=query_embedding,
-                ktop=ktop,
-                threshold=threshold,
+                ktop=vector_search_limit,  # Get more results initially
+                threshold=0.0,  # No threshold for initial search
                 file_ids=search_request.file_ids,
                 tags=search_request.tags
             )
             
-            # Sort by distance (descending - higher distance = more similar) and limit to ktop
-            search_results.sort(key=lambda x: x.distance, reverse=True)  # distance (higher = better)
-            search_results = search_results[:ktop]  # Limit to ktop results
+            print(f"Vector search returned {len(search_results)} candidates for reranking")
             
-            # Results sorted and limited to {len(search_results)} items
+            # Apply reranking using Google's semantic reranker
+            reranked_results = await self._rerank_results(
+                query=search_request.query,
+                search_results=search_results
+            )
+            
+            print(f"Reranked to {len(reranked_results)} results")
+            
+            # Apply threshold after reranking
+            filtered_results = [
+                result for result in reranked_results 
+                if result.distance >= threshold  # Higher distance = better similarity
+            ]
+            
+            print(f"After threshold {threshold}: {len(filtered_results)} results")
+            
+            # Limit to requested ktop
+            final_results = filtered_results[:ktop]
             
             # Group results by file
-            files_dict = await self._group_results_by_file(search_results)
-            
+            files_dict = await self._group_results_by_file(final_results)
             
             # Get file metadata from GCS
             files_with_metadata = await self._enrich_with_file_metadata(files_dict)
@@ -99,7 +125,7 @@ class RAGSearchService:
             # Generate RAG response using Gemini
             rag_response = await self._generate_rag_response(
                 query=search_request.query,
-                search_results=search_results
+                search_results=final_results
             )
             
             processing_time = (time.time() - start_time) * 1000  # Convert to milliseconds
@@ -109,34 +135,103 @@ class RAGSearchService:
                 query=search_request.query,
                 files=files_with_metadata,
                 total_files=len(files_with_metadata),
-                total_chunks=len(search_results),
+                total_chunks=len(final_results),
                 rag_response=rag_response,
                 processing_time_ms=processing_time,
                 search_parameters={
                     "ktop": ktop,
                     "threshold": threshold,
-                    "file_ids": search_request.file_ids
+                    "file_ids": search_request.file_ids,
+                    "tags": search_request.tags
                 }
             )
             
         except Exception as e:
             raise RAGAPIException(f"Error performing RAG search: {str(e)}")
     
+    async def _rerank_results(
+        self, 
+        query: str, 
+        search_results: List[SearchResult]
+    ) -> List[SearchResult]:
+        """Rerank search results using Google's semantic reranker."""
+        try:
+            if not search_results:
+                return []
+            
+            # Check if Discovery Engine is available
+            if not DISCOVERY_ENGINE_AVAILABLE or not discoveryengine or not self.discovery_client:
+                print("Discovery Engine not available, skipping reranking")
+                # Return original results sorted by distance (descending)
+                search_results.sort(key=lambda x: x.distance, reverse=True)
+                return search_results
+            
+            # Prepare ranking records for the reranker
+            ranking_records = []
+            for i, result in enumerate(search_results):
+                # Extract title from metadata if available
+                title = result.metadata.get("title", "") if result.metadata else ""
+                
+                ranking_record = discoveryengine.RankingRecord(
+                    id=str(i),  # Use index as ID
+                    title=title,
+                    content=result.content
+                )
+                ranking_records.append(ranking_record)
+            
+            # Get ranking config path
+            ranking_config = self.discovery_client.ranking_config_path(
+                project=self.project_id,
+                location="global",
+                ranking_config="default_ranking_config"
+            )
+            
+            # Create rerank request
+            request = discoveryengine.RankRequest(
+                ranking_config=ranking_config,
+                model="semantic-ranker-default@latest",
+                top_n=len(search_results),  # Rerank all results
+                query=query,
+                records=ranking_records
+            )
+            
+            # Perform reranking
+            print(f"Reranking {len(search_results)} results with Discovery Engine")
+            response = self.discovery_client.rank(request=request)
+            
+            # Map reranked results back to SearchResult objects
+            reranked_results = []
+            for ranked_record in response.records:
+                # Get original result by ID (index)
+                original_index = int(ranked_record.id)
+                if original_index < len(search_results):
+                    original_result = search_results[original_index]
+                    # Update distance with rerank score (higher is better)
+                    original_result.distance = ranked_record.score
+                    reranked_results.append(original_result)
+            
+            # Sort by rerank score (descending - higher is better)
+            reranked_results.sort(key=lambda x: x.distance, reverse=True)
+            
+            print(f"Reranking completed, returning {len(reranked_results)} results")
+            return reranked_results
+            
+        except Exception as e:
+            print(f"Reranking failed, falling back to original order: {e}")
+            # If reranking fails, return original results sorted by distance
+            search_results.sort(key=lambda x: x.distance, reverse=True)
+            return search_results
+    
     async def _get_query_embedding(self, query: str) -> List[float]:
         """Get embedding for the search query using Gemini embedding model."""
         try:
-            # Generating embedding for query using {settings.vertex_ai_embedding_model_name}
-            
             # Use Google Generative AI with QUESTION_ANSWERING task type
-            import google.generativeai as genai
             result = genai.embed_content(
-                model=settings.vertex_ai_embedding_model_name,  # Use gemini-embedding-001 from .env
+                model=settings.vertex_ai_embedding_model_name,
                 content=query,
                 task_type="QUESTION_ANSWERING"
             )
             query_embedding = result['embedding']
-            
-            # Query embedding generated: {len(query_embedding)} dimensions
             
             return query_embedding
         except Exception as e:
@@ -158,34 +253,26 @@ class RAGSearchService:
             vector_service = VectorSearchService()
             
             # Perform search using the existing service
-            # Note: The search_similar method expects endpoint_id to be the deployed_index_id
             results = await vector_service.search_similar(
                 query_embedding=query_embedding,
                 index_id=self.index_id,
-                endpoint_id=settings.vector_search_deployed_index_id,  # This is the deployed index ID
+                endpoint_id=settings.vector_search_deployed_index_id,
                 top_k=ktop,
                 filter_expression=None,
                 tags=tags
             )
             
-            # Process results
+            # Process results (no threshold filtering here)
             print(f"Vector search returned {len(results)} results")
             search_results = []
             for i, result in enumerate(results):
-                # Check distance threshold (higher distance = more similar)
                 distance_score = result["score"]  # score is now distance
-                print(f"Result {i}: distance={distance_score:.3f}, threshold={threshold}")
+                print(f"Result {i}: distance={distance_score:.3f}")
                 
-                if distance_score < threshold:
-                    print(f"  Skipping due to low distance (low similarity)")
-                    continue
-                    
                 metadata = result.get("metadata", {})
-                print(f"  Metadata: {metadata}")
                 
                 # Apply file filter if specified
                 if file_ids and metadata.get("filename") not in file_ids:
-                    print(f"  Skipping due to file filter")
                     continue
                 
                 search_result = SearchResult(
@@ -193,13 +280,12 @@ class RAGSearchService:
                     file_id=metadata.get("filename", ""),
                     filename=metadata.get("filename", ""),
                     chunk_index=int(metadata.get("chunk_index", 0)),
-                    distance=distance_score,  # Distance (lower = better)
+                    distance=distance_score,
                     metadata=metadata
                 )
                 search_results.append(search_result)
-                print(f"  Added to results")
             
-            print(f"Final search results: {len(search_results)}")
+            print(f"Processed {len(search_results)} results from vector search")
             return search_results
             
         except Exception as e:
@@ -249,6 +335,11 @@ class RAGSearchService:
                         if tags_str:
                             file_tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
                     
+                    # Extract title from chunk metadata
+                    document_title = None
+                    if chunks and chunks[0].metadata and "title" in chunks[0].metadata:
+                        document_title = chunks[0].metadata["title"]
+                    
                     file_info = RAGSearchFileInfo(
                         name=filename,
                         path=file_path,
@@ -256,6 +347,7 @@ class RAGSearchService:
                         last_updated=blob.updated,
                         size=blob.size,
                         tags=file_tags,
+                        title=document_title,
                         matched_chunks=chunks
                     )
                     files_with_metadata.append(file_info)
