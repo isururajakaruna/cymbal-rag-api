@@ -42,26 +42,30 @@ class GeminiDocumentProcessor:
             Analyze this document page and extract all table content.
             For each table found:
             1. Identify the table structure and column headers
-            2. For each row, create a structured format where:
-               - Column headers become bullet points
-               - Each row's data is described under the relevant column header
+            2. Convert the table to a structured format where:
+               - Each column header becomes a sub-heading
+               - Under each sub-heading, list all the row data as bullet points
+               - Group related data logically
             3. If there are nested tables, handle them separately
             4. Preserve the logical relationships between data
             
             Format the output as:
             ## Table: [Table Title if available]
-            ### Column Headers:
-            - Header 1: [description]
-            - Header 2: [description]
             
-            ### Data Rows:
-            **Row 1:**
-            - Header 1: [value]
-            - Header 2: [value]
+            ### [Column Header 1]
+            - [Row 1 data for this column]
+            - [Row 2 data for this column]
+            - [Row 3 data for this column]
             
-            **Row 2:**
-            - Header 1: [value]
-            - Header 2: [value]
+            ### [Column Header 2]
+            - [Row 1 data for this column]
+            - [Row 2 data for this column]
+            - [Row 3 data for this column]
+            
+            ### [Column Header 3]
+            - [Row 1 data for this column]
+            - [Row 2 data for this column]
+            - [Row 3 data for this column]
             """,
             "diagram_analysis": """
             Analyze this image/diagram and provide a comprehensive description.
@@ -85,10 +89,27 @@ class GeminiDocumentProcessor:
             """,
             "mixed_content": """
             Analyze this document page comprehensively and extract all content.
-            Handle different content types as follows:
+            
+            **IMPORTANT**: If this page appears to be completely empty (no text, tables, diagrams, or meaningful content), respond with exactly: "EMPTY_PAGE"
+            
+            If the page has content, handle different content types as follows:
             
             1. **Text Content**: Extract and preserve structure
-            2. **Tables**: Use the table extraction format
+            2. **Tables**: Convert tables to structured format:
+               - For each table, create a section with the table title
+               - Convert each row to a structured format where column headers become sub-headings
+               - Under each sub-heading, list the row data as bullet points or descriptive text
+               - Example format:
+                 
+                 ## Table: [Table Title]
+                 ### [Column Header 1]
+                 - Row 1 data for this column
+                 - Row 2 data for this column
+                 
+                 ### [Column Header 2] 
+                 - Row 1 data for this column
+                 - Row 2 data for this column
+                 
             3. **Diagrams/Charts**: Use the diagram analysis format
             4. **Images**: Describe what you see and any relevant text
             
@@ -120,6 +141,8 @@ class GeminiDocumentProcessor:
                 "application/vnd.ms-excel",
             ]:
                 return await self._process_excel_with_pandas(file_content, filename)
+            elif content_type == "text/csv":
+                return await self._process_csv_with_pandas(file_content, filename)
             elif content_type == "text/plain":
                 return await self._process_text(file_content, filename)
             else:
@@ -157,6 +180,12 @@ class GeminiDocumentProcessor:
                     img_base64, page_num
                 )
 
+                # Skip empty pages (as detected by Gemini)
+                if page_content.strip() == "EMPTY_PAGE":
+                    print(f"Skipping empty page {page_num}")
+                    continue
+                
+                # Only process pages with actual content
                 if page_content.strip():
                     chunks.append(
                         ChunkInfo(
@@ -248,6 +277,54 @@ class GeminiDocumentProcessor:
         except Exception as e:
             raise DocumentProcessingError(
                 f"Failed to process Excel file {filename}: {str(e)}"
+            )
+
+    async def _process_csv_with_pandas(
+        self, file_content: bytes, filename: str
+    ) -> List[ChunkInfo]:
+        """Process CSV files using pandas for structured data extraction."""
+        try:
+            # Read CSV file with error handling
+            csv_file = io.BytesIO(file_content)
+            
+            # Try different parsing options to handle various CSV formats
+            try:
+                df = pd.read_csv(csv_file, quotechar='"', escapechar='\\')
+            except pd.errors.ParserError:
+                # If parsing fails, try with different options
+                csv_file.seek(0)
+                df = pd.read_csv(csv_file, quotechar='"', escapechar='\\', on_bad_lines='skip')
+            except Exception:
+                # Last resort: try with minimal parsing
+                csv_file.seek(0)
+                df = pd.read_csv(csv_file, sep=',', quotechar='"', on_bad_lines='skip')
+
+            chunks = []
+            if not df.empty:
+                # Convert DataFrame to structured text
+                csv_content = await self._convert_dataframe_to_text(df, "main")
+
+                if csv_content.strip():
+                    chunks.append(
+                        ChunkInfo(
+                            chunk_id=f"{filename}_csv",
+                            content=csv_content,
+                            chunk_index=0,
+                            metadata={
+                                "type": "csv_data",
+                                "processor": "pandas",
+                                "filename": filename,
+                                "rows": len(df),
+                                "columns": len(df.columns),
+                            },
+                        )
+                    )
+
+            return chunks
+
+        except Exception as e:
+            raise DocumentProcessingError(
+                f"Failed to process CSV file {filename}: {str(e)}"
             )
 
     async def _process_text(

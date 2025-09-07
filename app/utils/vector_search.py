@@ -3,7 +3,8 @@
 import os
 from typing import List, Dict, Any, Optional
 from google.cloud import aiplatform
-from google.cloud.aiplatform import MatchingEngineIndex, MatchingEngineIndexEndpoint
+from google.cloud import aiplatform_v1
+from google.cloud.aiplatform import MatchingEngineIndex
 from google.cloud.aiplatform_v1.types import IndexDatapoint
 import asyncio
 import json
@@ -59,10 +60,33 @@ class VectorSearchService:
             # Prepare datapoints for upsert
             datapoints = []
             for embedding_data in embeddings:
+                # Convert metadata to restricts format using Restriction objects
+                metadata = embedding_data.get("metadata", {})
+                restricts = []
+                
+                # Convert metadata to restricts format
+                for key, value in metadata.items():
+                    if isinstance(value, str):
+                        # Create a Restriction object for each metadata field
+                        restriction = IndexDatapoint.Restriction(
+                            namespace=key,
+                            allow_list=[value],
+                            deny_list=[]
+                        )
+                        restricts.append(restriction)
+                    else:
+                        # Convert non-string values to strings
+                        restriction = IndexDatapoint.Restriction(
+                            namespace=key,
+                            allow_list=[str(value)],
+                            deny_list=[]
+                        )
+                        restricts.append(restriction)
+                
                 datapoint = IndexDatapoint(
                     datapoint_id=embedding_data["id"],
                     feature_vector=embedding_data["embedding"],
-                    restricts=[],  # No restrictions for now
+                    restricts=restricts,  # Store metadata as restricts
                     numeric_restricts=[]  # No numeric restrictions for now
                 )
                 datapoints.append(datapoint)
@@ -103,30 +127,56 @@ class VectorSearchService:
             print(f"  Top K: {top_k}")
             print(f"  Filter: {filter_expression}")
             
-            # Get the endpoint
-            endpoint = MatchingEngineIndexEndpoint(index_endpoint_name=self.endpoint_name)
+            # Use the correct API endpoint from GCP console
+            # The exact endpoint format from GCP console sample
+            api_endpoint = "1239478193.us-central1-630583075057.vdb.vertexai.goog"
+            client_options = {"api_endpoint": api_endpoint}
             
-            # Execute search
-            response = endpoint.find_neighbors(
-                deployed_index_id=endpoint_id,
-                queries=[query_embedding],
-                num_neighbors=top_k,
-                return_full_datapoint=True
+            vector_search_client = aiplatform_v1.MatchServiceClient(
+                client_options=client_options,
             )
+            
+            # Build FindNeighborsRequest object
+            datapoint = aiplatform_v1.IndexDatapoint(
+                feature_vector=query_embedding
+            )
+            
+            query = aiplatform_v1.FindNeighborsRequest.Query(
+                datapoint=datapoint,
+                neighbor_count=top_k
+            )
+            
+            request = aiplatform_v1.FindNeighborsRequest(
+                index_endpoint=self.endpoint_name,
+                deployed_index_id=endpoint_id,
+                queries=[query],
+                return_full_datapoint=True,
+            )
+            
+            # Execute the request
+            response = vector_search_client.find_neighbors(request)
             
             # Process results
             results = []
-            for query_result in response:
-                for neighbor in query_result:
+            for query_result in response.nearest_neighbors:
+                for neighbor in query_result.neighbors:
                     result = {
                         "id": neighbor.datapoint.datapoint_id,
                         "score": neighbor.distance,
                         "metadata": {}
                     }
                     
-                    # Extract metadata if available
-                    if hasattr(neighbor.datapoint, 'metadata') and neighbor.datapoint.metadata:
-                        result["metadata"] = dict(neighbor.datapoint.metadata)
+                    # Extract metadata from restricts field
+                    if hasattr(neighbor.datapoint, 'restricts') and neighbor.datapoint.restricts:
+                        metadata = {}
+                        for restrict in neighbor.datapoint.restricts:
+                            # Extract from Restriction object
+                            if hasattr(restrict, 'namespace') and hasattr(restrict, 'allow_list'):
+                                namespace = restrict.namespace
+                                if restrict.allow_list and len(restrict.allow_list) > 0:
+                                    value = restrict.allow_list[0]  # Take the first value
+                                    metadata[namespace] = value
+                        result["metadata"] = metadata
                     
                     results.append(result)
             

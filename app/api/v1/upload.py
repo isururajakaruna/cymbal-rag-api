@@ -8,7 +8,7 @@ including direct uploads and uploads from temporary storage.
 import os
 import uuid
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Path
+from fastapi import APIRouter, File, UploadFile, HTTPException, Form, Path, Query
 from fastapi.responses import JSONResponse
 from google.cloud import storage
 import vertexai
@@ -165,7 +165,8 @@ async def process_and_embed_document(file_content: bytes, filename: str, content
                     "original_filename": filename,  # Keep original for reference
                     "content_type": content_type,
                     "chunk_index": i,
-                    "total_chunks": len(chunks)
+                    "total_chunks": len(chunks),
+                    "content": chunk.content  # Include content in metadata for vector search
                 },
                 "embedding": embedding
             }
@@ -275,6 +276,23 @@ async def upload_direct_file(
         filename = file.filename
         content_type = file.content_type
         
+        # Handle content type mapping for files detected as application/octet-stream
+        if content_type == "application/octet-stream" or not content_type:
+            import mimetypes
+            file_extension = os.path.splitext(filename)[1].lower()
+            extension_to_content_type = {
+                ".pdf": "application/pdf",
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".xls": "application/vnd.ms-excel",
+                ".csv": "text/csv"
+            }
+            if file_extension in extension_to_content_type:
+                content_type = extension_to_content_type[file_extension]
+        
         # Check if file already exists and remove existing embeddings
         if replace_existing:
             await remove_existing_embeddings(filename)
@@ -350,6 +368,23 @@ async def upload_from_temp_storage(validation_id: str = Path(...)):
         # Download file content from temp storage
         file_content = await download_file_from_gcs(temp_file_info["temp_path"])
         
+        # Handle content type mapping for files detected as application/octet-stream
+        content_type = temp_file_info["content_type"]
+        if content_type == "application/octet-stream" or not content_type:
+            file_extension = os.path.splitext(temp_file_info["filename"])[1].lower()
+            extension_to_content_type = {
+                ".pdf": "application/pdf",
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".xls": "application/vnd.ms-excel",
+                ".csv": "text/csv"
+            }
+            if file_extension in extension_to_content_type:
+                content_type = extension_to_content_type[file_extension]
+        
         # Remove existing embeddings if file exists
         await remove_existing_embeddings(temp_file_info["filename"])
         
@@ -357,7 +392,7 @@ async def upload_from_temp_storage(validation_id: str = Path(...)):
         processing_result = await process_and_embed_document(
             file_content=file_content,
             filename=temp_file_info["filename"],
-            content_type=temp_file_info["content_type"]
+            content_type=content_type
         )
         
         # Store embeddings in Vector Search
@@ -379,7 +414,7 @@ async def upload_from_temp_storage(validation_id: str = Path(...)):
         upload_path = await upload_file_to_uploads(
             file_content=file_content,
             filename=temp_file_info["filename"],
-            content_type=temp_file_info["content_type"],
+            content_type=content_type,
             datapoint_ids=datapoint_ids
         )
         
@@ -393,7 +428,7 @@ async def upload_from_temp_storage(validation_id: str = Path(...)):
             "original_filename": temp_file_info["filename"],
             "upload_path": upload_path,
             "file_size": temp_file_info["size"],
-            "content_type": temp_file_info["content_type"],
+            "content_type": content_type,
             "total_chunks": processing_result["total_chunks"],
             "embeddings_stored": len(processing_result["embeddings"]),
             "message": f"File '{temp_file_info['filename']}' successfully uploaded and processed for knowledge base"
@@ -451,8 +486,8 @@ async def get_upload_status(filename: str = Path(...)):
         raise HTTPException(status_code=500, detail=f"Error checking upload status: {str(e)}")
 
 
-@router.delete("/upload/{filename}")
-async def delete_uploaded_file(filename: str = Path(...)):
+@router.delete("/upload/delete")
+async def delete_uploaded_file(filename: str = Query(..., description="Name of the file to delete")):
     """
     Delete an uploaded file and its embeddings.
     

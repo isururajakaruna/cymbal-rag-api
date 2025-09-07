@@ -28,7 +28,8 @@ SUPPORTED_EXTENSIONS = {
     "application/pdf": [".pdf"],
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-    "application/vnd.ms-excel": [".xls"]
+    "application/vnd.ms-excel": [".xls"],
+    "text/csv": [".csv"]
 }
 
 ALL_SUPPORTED_EXTENSIONS = [ext for extensions in SUPPORTED_EXTENSIONS.values() for ext in extensions]
@@ -140,7 +141,8 @@ async def validate_file_format(content_type: str, filename: str) -> dict:
             ".jpeg": "image/jpeg",
             ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            ".xls": "application/vnd.ms-excel"
+            ".xls": "application/vnd.ms-excel",
+            ".csv": "text/csv"
         }
         
         if file_extension in extension_to_content_type:

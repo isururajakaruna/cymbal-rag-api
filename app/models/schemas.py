@@ -43,9 +43,9 @@ class SearchRequest(BaseModel):
     """Request model for RAG search."""
 
     query: str = Field(..., min_length=1, max_length=1000)
-    max_results: Optional[int] = Field(default=10, ge=1, le=50)
-    similarity_threshold: Optional[float] = Field(default=0.7, ge=0.0, le=1.0)
-    file_ids: Optional[List[str]] = Field(default=None, max_items=10)
+    ktop: Optional[int] = Field(default=None, ge=1, le=50, description="Number of top results to retrieve")
+    threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="Similarity threshold")
+    file_ids: Optional[List[str]] = Field(default=None, max_items=10, description="Optional list of file IDs to search within")
 
 
 class SearchResult(BaseModel):
@@ -59,8 +59,31 @@ class SearchResult(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
+class RAGSearchFileInfo(BaseModel):
+    """File information for RAG search results."""
+    name: str
+    path: str
+    file_type: str
+    last_updated: datetime
+    size: int
+    matched_chunks: List[SearchResult] = Field(default_factory=list)
+
+
+class RAGSearchResponse(BaseModel):
+    """Enhanced response model for RAG search with file list and RAG response."""
+
+    success: bool
+    query: str
+    files: List[RAGSearchFileInfo]
+    total_files: int
+    total_chunks: int
+    rag_response: str
+    processing_time_ms: float
+    search_parameters: Dict[str, Any]
+
+
 class SearchResponse(BaseModel):
-    """Response model for RAG search."""
+    """Legacy response model for RAG search."""
 
     query: str
     results: List[SearchResult]

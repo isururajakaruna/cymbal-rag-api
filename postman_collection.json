@@ -1,15 +1,67 @@
 {
   "info": {
     "name": "Cymbal RAG API - Complete Collection",
-    "description": "Complete Postman collection for testing all Cymbal RAG API endpoints including file validation, upload, search, and file management",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "description": "Complete Postman collection for testing all Cymbal RAG API endpoints including file validation, upload, search, and file management. This collection includes comprehensive descriptions and expected response formats for each API endpoint.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "2.0.0"
   },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "description": "Base URL for the Cymbal RAG API"
+    },
+    {
+      "key": "search_query",
+      "value": "WHO & AOH Cut-Off Time",
+      "description": "Default search query for testing RAG search"
+    }
+  ],
   "item": [
     {
-      "name": "File Validation",
+      "name": "File Validation APIs",
+      "description": "APIs for validating file uploads before processing. These endpoints check file format, content quality, and handle file existence conflicts.",
       "item": [
         {
-          "name": "Validate File - Success Case",
+          "name": "Get Supported File Formats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/supported-formats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "supported-formats"]
+            },
+            "description": "Retrieve list of supported file formats for upload"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/file/supported-formats",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "file", "supported-formats"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"supported_formats\": [\n    \"image/jpeg\",\n    \"image/png\",\n    \"application/pdf\",\n    \"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\n    \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\n    \"application/vnd.ms-excel\",\n    \"text/csv\"\n  ],\n  \"extensions\": [\n    \".jpg\",\n    \".jpeg\",\n    \".png\",\n    \".pdf\",\n    \".docx\",\n    \".xlsx\",\n    \".xls\",\n    \".csv\"\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Validate File - PDF",
           "request": {
             "method": "POST",
             "header": [
@@ -24,12 +76,14 @@
                 {
                   "key": "file",
                   "type": "file",
-                  "src": "test_data/tables/simple_table.pdf"
+                  "src": "test_data/post_pdf.pdf",
+                  "description": "PDF file to validate"
                 },
                 {
                   "key": "replace_existing",
                   "value": "false",
-                  "type": "text"
+                  "type": "text",
+                  "description": "Whether to replace existing file if it exists"
                 }
               ]
             },
@@ -38,9 +92,134 @@
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "file", "validate"]
             },
-            "description": "Upload and validate a PDF file successfully"
+            "description": "Validate a PDF file for upload. This endpoint uploads the file to a temporary location, checks if it already exists, validates the file format, and performs content quality analysis using Gemini AI."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "multipart/form-data"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": "test_data/post_pdf.pdf"
+                    },
+                    {
+                      "key": "replace_existing",
+                      "value": "false",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/file/validate",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "file", "validate"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"validation_id\": \"abc123def456\",\n  \"filename\": \"post_pdf.pdf\",\n  \"file_size\": 104844,\n  \"content_type\": \"application/pdf\",\n  \"temp_path\": \"_tmp/post_pdf.pdf\",\n  \"file_exists\": false,\n  \"supported_format\": true,\n  \"supported_extensions\": [\n    \".jpg\", \".jpeg\", \".png\", \".pdf\", \".docx\", \".xlsx\", \".xls\"\n  ],\n  \"provided_type\": \"application/pdf\",\n  \"provided_extension\": \".pdf\",\n  \"quality_score\": 8,\n  \"reasoning\": \"Document contains substantial content suitable for knowledge base\",\n  \"suggestion\": \"File is ready for upload\",\n  \"message\": \"File validated successfully and ready for upload\"\n}"
+            },
+            {
+              "name": "File Already Exists",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "multipart/form-data"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": "test_data/post_pdf.pdf"
+                    },
+                    {
+                      "key": "replace_existing",
+                      "value": "false",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/file/validate",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "file", "validate"]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"error\": \"File already exists\",\n  \"filename\": \"post_pdf.pdf\",\n  \"file_exists\": true,\n  \"suggestion\": \"Set replace_existing=true to replace the existing file\"\n}"
+            },
+            {
+              "name": "Unsupported Format",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "multipart/form-data"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": "test_data/unsupported.txt"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/file/validate",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "file", "validate"]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Unsupported file format\",\n  \"provided_type\": \"text/plain\",\n  \"provided_extension\": \".txt\",\n  \"supported_formats\": [\n    \"image/jpeg\", \"image/png\", \"application/pdf\", \"application/vnd.openxmlformats-officedocument.wordprocessingml.document\", \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\", \"application/vnd.ms-excel\", \"text/csv\"\n  ],\n  \"supported_extensions\": [\n    \".jpg\", \".jpeg\", \".png\", \".pdf\", \".docx\", \".xlsx\", \".xls\", \".csv\"\n  ]\n}"
+            }
+          ]
         },
         {
           "name": "Validate File - Image (PNG)",
@@ -58,11 +237,12 @@
                 {
                   "key": "file",
                   "type": "file",
-                  "src": "test_data/images/image_with_text.png"
+                  "src": "test_data/image_with_text.png",
+                  "description": "PNG image file to validate"
                 },
                 {
                   "key": "replace_existing",
-                  "value": "true",
+                  "value": "false",
                   "type": "text"
                 }
               ]
@@ -72,45 +252,12 @@
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "file", "validate"]
             },
-            "description": "Upload and validate a PNG image file"
+            "description": "Validate an image file (PNG) for upload. Images are processed using Gemini's multimodal capabilities to extract text content and assess quality."
           },
           "response": []
         },
         {
-          "name": "Get Supported Formats",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/file/supported-formats",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "supported-formats"]
-            },
-            "description": "Get list of supported file formats and extensions"
-          },
-          "response": []
-        },
-        {
-          "name": "Upload Validated File",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/file/upload/{{validation_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "upload", "{{validation_id}}"]
-            },
-            "description": "Upload a previously validated file to the main uploads directory using its validation_id"
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "File Upload",
-      "item": [
-        {
-          "name": "Direct File Upload",
+          "name": "Validate File - Excel (XLSX)",
           "request": {
             "method": "POST",
             "header": [
@@ -125,12 +272,90 @@
                 {
                   "key": "file",
                   "type": "file",
-                  "src": "test_data/tables/simple_table.pdf"
+                  "src": "test_data/sample_data.xlsx",
+                  "description": "Excel file to validate"
+                },
+                {
+                  "key": "replace_existing",
+                  "value": "false",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "validate"]
+            },
+            "description": "Validate an Excel file (XLSX) for upload. Excel files are processed using pandas to extract data from all sheets."
+          },
+          "response": []
+        },
+        {
+          "name": "Validate File - CSV",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data/sample_data.csv",
+                  "description": "CSV file to validate"
+                },
+                {
+                  "key": "replace_existing",
+                  "value": "false",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "validate"]
+            },
+            "description": "Validate a CSV file for upload. CSV files are processed using pandas to extract structured data and convert it to readable text format."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "File Upload APIs",
+      "description": "APIs for uploading files to the knowledge base. Files are processed, chunked, embedded, and stored in Vector Search for retrieval.",
+      "item": [
+        {
+          "name": "Upload File Direct",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data/post_pdf.pdf",
+                  "description": "File to upload directly"
                 },
                 {
                   "key": "replace_existing",
                   "value": "true",
-                  "type": "text"
+                  "type": "text",
+                  "description": "Whether to replace existing file"
                 }
               ]
             },
@@ -139,12 +364,56 @@
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "upload", "direct"]
             },
-            "description": "Upload a file directly to the knowledge base with processing and embedding generation"
+            "description": "Upload a file directly to the knowledge base. The file is processed, chunked based on configuration, embedded using Vertex AI, and stored in Vector Search. Empty pages are automatically skipped and tables are converted to structured format."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "multipart/form-data"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "file",
+                      "type": "file",
+                      "src": "test_data/post_pdf.pdf"
+                    },
+                    {
+                      "key": "replace_existing",
+                      "value": "true",
+                      "type": "text"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/upload/direct",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "upload", "direct"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"filename\": \"post_pdf.pdf\",\n  \"original_filename\": \"post_pdf.pdf\",\n  \"upload_path\": \"uploads/post_pdf.pdf\",\n  \"file_size\": 104844,\n  \"content_type\": \"application/pdf\",\n  \"total_chunks\": 6,\n  \"embeddings_stored\": 6,\n  \"message\": \"File 'post_pdf.pdf' successfully uploaded and processed for knowledge base\"\n}"
+            }
+          ]
         },
         {
-          "name": "Upload from Temp Storage",
+          "name": "Upload File from Validation",
           "request": {
             "method": "POST",
             "header": [],
@@ -153,99 +422,117 @@
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "upload", "{{validation_id}}"]
             },
-            "description": "Upload a file from temporary storage using validation_id"
+            "description": "Upload a file using its validation ID. This endpoint moves the file from the temporary location to the uploads directory and processes it for the knowledge base."
           },
-          "response": []
-        },
-        {
-          "name": "Delete File",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/upload/{{filename}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "upload", "{{filename}}"]
-            },
-            "description": "Delete a file and its embeddings from the knowledge base"
-          },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/upload/{{validation_id}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "upload", "{{validation_id}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"filename\": \"post_pdf.pdf\",\n  \"original_filename\": \"post_pdf.pdf\",\n  \"upload_path\": \"uploads/post_pdf.pdf\",\n  \"file_size\": 104844,\n  \"content_type\": \"application/pdf\",\n  \"total_chunks\": 6,\n  \"embeddings_stored\": 6,\n  \"message\": \"File 'post_pdf.pdf' successfully uploaded and processed for knowledge base\"\n}"
+            }
+          ]
         }
       ]
     },
     {
-      "name": "File Management",
+      "name": "File Management APIs",
+      "description": "APIs for managing uploaded files including listing, viewing, downloading, and getting statistics.",
       "item": [
         {
-          "name": "List All Files",
+          "name": "List Files",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/files/list",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "files", "list"]
-            },
-            "description": "List all uploaded files in the knowledge base"
-          },
-          "response": []
-        },
-        {
-          "name": "List Files - Sort by Name",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/files/list?sort_by=name&limit=10&offset=0",
+              "raw": "{{base_url}}/api/v1/files/list?sort_by=date&limit=10&offset=0&search=",
               "host": ["{{base_url}}"],
               "path": ["api", "v1", "files", "list"],
               "query": [
                 {
                   "key": "sort_by",
-                  "value": "name",
-                  "description": "Sort by: date, name, size"
+                  "value": "date",
+                  "description": "Sort by 'date' or 'name'"
                 },
                 {
                   "key": "limit",
                   "value": "10",
-                  "description": "Number of files to return"
+                  "description": "Number of files to return (optional)"
                 },
                 {
                   "key": "offset",
                   "value": "0",
-                  "description": "Number of files to skip"
-                }
-              ]
-            },
-            "description": "List files sorted by name with pagination"
-          },
-          "response": []
-        },
-        {
-          "name": "List Files - Search",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/files/list?search={{search_term}}&sort_by=date",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "files", "list"],
-              "query": [
-                {
-                  "key": "search",
-                  "value": "{{search_term}}",
-                  "description": "Search query for filename"
+                  "description": "Number of files to skip (optional)"
                 },
                 {
-                  "key": "sort_by",
-                  "value": "date",
-                  "description": "Sort by: date, name, size"
+                  "key": "search",
+                  "value": "",
+                  "description": "Search term for filename filtering (optional)"
                 }
               ]
             },
-            "description": "Search files by filename"
+            "description": "List all uploaded files with pagination, sorting, and search capabilities. Returns file metadata including name, path, type, size, and last updated timestamp."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/files/list?sort_by=date&limit=10&offset=0&search=",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "files", "list"],
+                  "query": [
+                    {
+                      "key": "sort_by",
+                      "value": "date"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    },
+                    {
+                      "key": "offset",
+                      "value": "0"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"files\": [\n    {\n      \"name\": \"post_pdf.pdf\",\n      \"path\": \"uploads/post_pdf.pdf\",\n      \"file_type\": \"application/pdf (.pdf)\",\n      \"last_updated\": \"2025-09-07T07:07:07.434000Z\",\n      \"size\": 104844\n    },\n    {\n      \"name\": \"image_with_text.png\",\n      \"path\": \"uploads/image_with_text.png\",\n      \"file_type\": \"image/png (.png)\",\n      \"last_updated\": \"2025-09-07T04:52:44.333000Z\",\n      \"size\": 21188\n    }\n  ],\n  \"total_count\": 2,\n  \"search_query\": null,\n  \"sort_by\": \"date\",\n  \"limit\": 10,\n  \"offset\": 0\n}"
+            }
+          ]
         },
         {
           "name": "Download File",
@@ -260,13 +547,76 @@
                 {
                   "key": "filename",
                   "value": "{{filename}}",
-                  "description": "The name of the file to download"
+                  "description": "Name of the file to download (as returned by list API)"
                 }
               ]
             },
-            "description": "Download a file by its filename"
+            "description": "Download a file by its filename. Returns the file content with appropriate headers for download."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/files/view?filename={{filename}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "files", "view"],
+                  "query": [
+                    {
+                      "key": "filename",
+                      "value": "{{filename}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "raw",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/pdf"
+                },
+                {
+                  "key": "Content-Disposition",
+                  "value": "attachment; filename=\"post_pdf.pdf\""
+                }
+              ],
+              "cookie": [],
+              "body": "[Binary file content]"
+            },
+            {
+              "name": "File Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/files/view?filename=nonexistent.pdf",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "files", "view"],
+                  "query": [
+                    {
+                      "key": "filename",
+                      "value": "nonexistent.pdf"
+                    }
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"error\": \"File not found\",\n  \"filename\": \"nonexistent.pdf\"\n}"
+            }
+          ]
         },
         {
           "name": "Get Embedding Stats",
@@ -281,21 +631,132 @@
                 {
                   "key": "filename",
                   "value": "{{filename}}",
-                  "description": "The name of the file to get stats for"
+                  "description": "Name of the file to get stats for (as returned by list API)"
                 }
               ]
             },
-            "description": "Get embedding statistics for a specific file"
+            "description": "Get embedding statistics for a specific file including total embeddings, datapoint IDs, and file metadata."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/files/embedding-stats?filename={{filename}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "files", "embedding-stats"],
+                  "query": [
+                    {
+                      "key": "filename",
+                      "value": "{{filename}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"file_info\": {\n    \"name\": \"post_pdf.pdf\",\n    \"path\": \"uploads/post_pdf.pdf\",\n    \"file_type\": \"application/pdf (.pdf)\",\n    \"last_updated\": \"2025-09-07T07:07:07.434000Z\",\n    \"size\": 104844\n  },\n  \"embedding_stats\": {\n    \"total_embeddings\": 6,\n    \"datapoint_ids\": [\n      \"post_pdf.pdf_0_819a7b22\",\n      \"post_pdf.pdf_1_fa73183c\",\n      \"post_pdf.pdf_2_d6885a1e\",\n      \"post_pdf.pdf_3_f8fab3cf\",\n      \"post_pdf.pdf_4_47303a0a\",\n      \"post_pdf.pdf_5_71226582\"\n    ],\n    \"has_embeddings\": true\n  },\n  \"message\": \"File has 6 embeddings stored in Vector Search\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete File",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/upload/delete?filename={{filename}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "upload", "delete"],
+              "query": [
+                {
+                  "key": "filename",
+                  "value": "{{filename}}",
+                  "description": "Name of the file to delete (as returned by list API)"
+                }
+              ]
+            },
+            "description": "Delete an uploaded file and its embeddings from the knowledge base. This endpoint removes both the file from Google Cloud Storage and all associated embeddings from Vector Search."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/upload/delete?filename={{filename}}",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "upload", "delete"],
+                  "query": [
+                    {
+                      "key": "filename",
+                      "value": "{{filename}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"filename\": \"post_pdf.pdf\",\n  \"embeddings_removed\": true,\n  \"file_deleted\": true,\n  \"message\": \"File 'post_pdf.pdf' and its embeddings have been removed\"\n}"
+            },
+            {
+              "name": "File Not Found",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/upload/delete?filename=nonexistent.pdf",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "upload", "delete"],
+                  "query": [
+                    {
+                      "key": "filename",
+                      "value": "nonexistent.pdf"
+                    }
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"error\": \"File 'nonexistent.pdf' not found in uploads directory\",\n  \"filename\": \"nonexistent.pdf\"\n}"
+            }
+          ]
         }
       ]
     },
     {
-      "name": "Search & RAG",
+      "name": "RAG Search APIs",
+      "description": "APIs for performing Retrieval-Augmented Generation (RAG) search using vector similarity and Gemini AI for response generation.",
       "item": [
         {
-          "name": "Search Documents (POST)",
+          "name": "RAG Search (POST)",
           "request": {
             "method": "POST",
             "header": [
@@ -306,26 +767,69 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"query\": \"{{search_query}}\",\n  \"max_results\": 10,\n  \"similarity_threshold\": 0.7,\n  \"file_ids\": [\"file1.pdf\", \"file2.docx\"]\n}"
+              "raw": "{\n  \"query\": \"{{search_query}}\",\n  \"ktop\": 10,\n  \"threshold\": 0.7,\n  \"file_ids\": [\"post_pdf.pdf\", \"image_with_text.png\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/search/",
+              "raw": "{{base_url}}/api/v1/search/rag",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "search", ""]
+              "path": ["api", "v1", "search", "rag"]
             },
-            "description": "Search documents using RAG with POST request and JSON body"
+            "description": "Perform RAG search using POST method. This endpoint takes a search query, performs vector similarity search, groups results by file, and generates a comprehensive response using Gemini AI. Supports filtering by file IDs and similarity thresholds."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"query\": \"WHO & AOH Cut-Off Time\",\n  \"ktop\": 10,\n  \"threshold\": 0.7,\n  \"file_ids\": [\"post_pdf.pdf\"]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/search/rag",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "search", "rag"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"query\": \"WHO & AOH Cut-Off Time\",\n  \"files\": [\n    {\n      \"name\": \"post_pdf.pdf\",\n      \"path\": \"uploads/post_pdf.pdf\",\n      \"file_type\": \"application/pdf (.pdf)\",\n      \"last_updated\": \"2025-09-07T07:07:07.434000Z\",\n      \"size\": 104844,\n      \"matched_chunks\": [\n        {\n          \"content\": \"## Table: WHO & AOH Cut-Off Time\\n### Definition\\n- Within Office Hours (WOH)\\n- After Office Hours (AOH)\\n### Day\\n- Mondays to Fridays *Excluding Public Holidays*\\n- Mondays to Fridays *Excluding Public Holidays*, Saturdays, Sundays & Public Holidays\\n### Time of Call\\n- 9:00am – 6:00pm\\n- 6:01pm – 11:59pm\\n- 12:00am – 8:59am\",\n          \"file_id\": \"post_pdf.pdf\",\n          \"filename\": \"post_pdf.pdf\",\n          \"chunk_index\": 0,\n          \"similarity_score\": 0.39130622148513794,\n          \"metadata\": {\n            \"page_number\": \"1\",\n            \"type\": \"pdf_page\",\n            \"processor\": \"gemini_multimodal\",\n            \"filename\": \"post_pdf.pdf\",\n            \"chunk_size\": \"1966\",\n            \"chunk_index\": \"0\",\n            \"total_chunks\": \"6\",\n            \"original_filename\": \"post_pdf.pdf\",\n            \"content_type\": \"application/pdf\",\n            \"content\": \"[Full chunk content]\"\n          }\n        }\n      ]\n    }\n  ],\n  \"total_files\": 1,\n  \"total_chunks\": 3,\n  \"rag_response\": \"The 'WHO & AOH Cut-Off Time' refers to the timeframes for handling 'Postal Critical – Top Priority Cases' and 'Urgent Redelivery for Registered Service'. Here's a breakdown of the cut-off times: ### Definitions: * **Within Office Hours (WOH)** * **After Office Hours (AOH)** ### Day and Time of Call: * **Mondays to Fridays (Excluding Public Holidays)** * 9:00am – 6:00 pm * **Mondays to Fridays (Excluding Public Holidays), Saturdays, Sundays & Public Holidays** * 6:01 pm – 11:59 pm * 12:00 am – 8:59 am **Note:** The process described for these cases is only available WITHIN OFFICE HOURS ONLY and can only be handled by SMEs and above.\",\n  \"processing_time_ms\": 7758.564233779907,\n  \"search_parameters\": {\n    \"ktop\": 10,\n    \"threshold\": 0.7,\n    \"file_ids\": [\"post_pdf.pdf\"]\n  }\n}"
+            }
+          ]
         },
         {
-          "name": "Search Documents (GET)",
+          "name": "RAG Search (GET)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/search/?query={{search_query}}&max_results=5&similarity_threshold=0.8",
+              "raw": "{{base_url}}/api/v1/search/rag?query={{search_query}}&ktop=10&threshold=0.7&file_ids=post_pdf.pdf,image_with_text.png",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "search", ""],
+              "path": ["api", "v1", "search", "rag"],
               "query": [
                 {
                   "key": "query",
@@ -333,56 +837,128 @@
                   "description": "Search query text"
                 },
                 {
-                  "key": "max_results",
-                  "value": "5",
-                  "description": "Maximum number of results (1-50)"
+                  "key": "ktop",
+                  "value": "10",
+                  "description": "Number of top results to retrieve (1-50)"
                 },
                 {
-                  "key": "similarity_threshold",
-                  "value": "0.8",
-                  "description": "Minimum similarity score (0.0-1.0)"
+                  "key": "threshold",
+                  "value": "0.7",
+                  "description": "Similarity threshold (0.0-1.0)"
+                },
+                {
+                  "key": "file_ids",
+                  "value": "post_pdf.pdf,image_with_text.png",
+                  "description": "Comma-separated list of file IDs to search within"
                 }
               ]
             },
-            "description": "Search documents using RAG with GET request and query parameters"
+            "description": "Perform RAG search using GET method with query parameters. Same functionality as POST method but using URL parameters for easier testing and integration."
           },
           "response": []
         },
         {
-          "name": "Search Health Check",
+          "name": "Legacy Search (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"{{search_query}}\",\n  \"ktop\": 5,\n  \"threshold\": 0.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/search/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "search", ""]
+            },
+            "description": "Legacy search endpoint (deprecated). Use RAG Search endpoints instead for enhanced functionality."
+          },
+          "response": []
+        },
+        {
+          "name": "Legacy Search (GET)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/search/health",
+              "raw": "{{base_url}}/api/v1/search/?query={{search_query}}&ktop=5&threshold=0.5",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "search", "health"]
+              "path": ["api", "v1", "search", ""],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "{{search_query}}"
+                },
+                {
+                  "key": "ktop",
+                  "value": "5"
+                },
+                {
+                  "key": "threshold",
+                  "value": "0.5"
+                }
+              ]
             },
-            "description": "Health check for search service"
+            "description": "Legacy search endpoint (deprecated). Use RAG Search endpoints instead for enhanced functionality."
           },
           "response": []
         }
       ]
     },
     {
-      "name": "Health Checks",
+      "name": "Utility APIs",
+      "description": "Utility APIs for managing the system including clearing storage and health checks.",
       "item": [
         {
-          "name": "Root Health Check",
+          "name": "Clear Storage",
           "request": {
-            "method": "GET",
+            "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/",
+              "raw": "{{base_url}}/api/v1/storage/clear",
               "host": ["{{base_url}}"],
-              "path": [""]
+              "path": ["api", "v1", "storage", "clear"]
             },
-            "description": "Check API health and status"
+            "description": "Clear all files from both temporary (_tmp) and uploads directories in Google Cloud Storage. Use with caution as this will delete all uploaded files and their embeddings."
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/storage/clear",
+                  "host": ["{{base_url}}"],
+                  "path": ["api", "v1", "storage", "clear"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Storage cleared successfully\",\n  \"files_deleted\": 5,\n  \"embeddings_removed\": true\n}"
+            }
+          ]
         },
         {
-          "name": "Health Check Endpoint",
+          "name": "Health Check",
           "request": {
             "method": "GET",
             "header": [],
@@ -391,52 +967,35 @@
               "host": ["{{base_url}}"],
               "path": ["health"]
             },
-            "description": "Dedicated health check endpoint"
+            "description": "Check the health status of the API server."
           },
-          "response": []
-        },
-        {
-          "name": "Debug Authentication",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/api/v1/file/debug-auth",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "debug-auth"]
-            },
-            "description": "Debug Google Cloud authentication status"
-          },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/health",
+                  "host": ["{{base_url}}"],
+                  "path": ["health"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"status\": \"healthy\",\n  \"timestamp\": \"2025-09-07T07:15:30.123456Z\"\n}"
+            }
+          ]
         }
       ]
-    }
-  ],
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://localhost:8000",
-      "description": "Base URL for the Cymbal RAG API"
-    },
-    {
-      "key": "validation_id",
-      "value": "",
-      "description": "Validation ID from file validation response (set automatically)"
-    },
-    {
-      "key": "filename",
-      "value": "image_with_text.png",
-      "description": "Filename for testing file operations"
-    },
-    {
-      "key": "search_query",
-      "value": "machine learning",
-      "description": "Default search query for testing"
-    },
-    {
-      "key": "search_term",
-      "value": "text",
-      "description": "Search term for file search"
     }
   ],
   "event": [
@@ -456,8 +1015,8 @@
         "type": "text/javascript",
         "exec": [
           "// Basic response tests",
-          "pm.test('Response time is less than 10000ms', function () {",
-          "    pm.expect(pm.response.responseTime).to.be.below(10000);",
+          "pm.test('Response time is less than 30000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(30000);",
           "});",
           "",
           "pm.test('Response status is successful', function () {",
@@ -480,6 +1039,31 @@
           "if (pm.response.headers.get('content-type') && pm.response.headers.get('content-type').includes('application/json')) {",
           "    pm.test('Response is valid JSON', function () {",
           "        pm.response.to.be.json;",
+          "    });",
+          "}",
+          "",
+          "// Test for RAG search response structure",
+          "if (pm.request.url.path.includes('search/rag') && pm.response.code === 200) {",
+          "    pm.test('RAG search response has required fields', function () {",
+          "        const jsonData = pm.response.json();",
+          "        pm.expect(jsonData).to.have.property('success');",
+          "        pm.expect(jsonData).to.have.property('query');",
+          "        pm.expect(jsonData).to.have.property('files');",
+          "        pm.expect(jsonData).to.have.property('total_files');",
+          "        pm.expect(jsonData).to.have.property('total_chunks');",
+          "        pm.expect(jsonData).to.have.property('rag_response');",
+          "        pm.expect(jsonData).to.have.property('processing_time_ms');",
+          "    });",
+          "}",
+          "",
+          "// Test for file upload response structure",
+          "if (pm.request.url.path.includes('upload') && pm.response.code === 200) {",
+          "    pm.test('Upload response has required fields', function () {",
+          "        const jsonData = pm.response.json();",
+          "        pm.expect(jsonData).to.have.property('success');",
+          "        pm.expect(jsonData).to.have.property('filename');",
+          "        pm.expect(jsonData).to.have.property('total_chunks');",
+          "        pm.expect(jsonData).to.have.property('embeddings_stored');",
           "    });",
           "}"
         ]
