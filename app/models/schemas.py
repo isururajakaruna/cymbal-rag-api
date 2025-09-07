@@ -105,3 +105,30 @@ class HealthCheckResponse(BaseModel):
     timestamp: datetime
     version: str
     services: Dict[str, str]  # service_name -> status
+
+
+class ContentAnalysis(BaseModel):
+    """Content analysis result from Gemini."""
+
+    content_quality: Dict[str, Any]
+    faq_structure: Dict[str, Any]
+
+
+class FileValidationResponse(BaseModel):
+    """Response model for file validation."""
+
+    success: bool
+    validation_id: Optional[str] = None
+    filename: Optional[str] = None
+    content_type: Optional[str] = None
+    file_size: Optional[int] = None
+    temp_path: Optional[str] = None
+    file_exists: Optional[bool] = None
+    content_analysis: Optional[ContentAnalysis] = None
+    message: Optional[str] = None
+
+
+class FileValidationRequest(BaseModel):
+    """Request model for file validation."""
+
+    replace_existing: bool = False

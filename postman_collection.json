@@ -1,0 +1,270 @@
+{
+  "info": {
+    "name": "Cymbal RAG API - File Validation",
+    "description": "Postman collection for testing the Cymbal RAG API file validation endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "File Validation",
+      "item": [
+        {
+          "name": "Validate File - Success Case",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data/tables/simple_table.pdf"
+                },
+                {
+                  "key": "replace_existing",
+                  "value": "false",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "validate"]
+            },
+            "description": "Upload and validate a PDF file successfully"
+          },
+          "response": []
+        },
+        {
+          "name": "Validate File - Unsupported Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data/unsupported_file.txt"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "validate"]
+            },
+            "description": "Test with unsupported file format"
+          },
+          "response": []
+        },
+        {
+          "name": "Validate File - Replace Existing",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data/tables/simple_table.pdf"
+                },
+                {
+                  "key": "replace_existing",
+                  "value": "true",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "validate"]
+            },
+            "description": "Upload file with replace_existing=true"
+          },
+          "response": []
+        },
+        {
+          "name": "Validate File - Image (PNG)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data/images/image_with_text.png"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "validate"]
+            },
+            "description": "Upload and validate a PNG image file"
+          },
+          "response": []
+        },
+        {
+          "name": "Validate File - Excel (XLSX)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "multipart/form-data"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "test_data/excel/sample_data.xlsx"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/validate",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "validate"]
+            },
+            "description": "Upload and validate an Excel file"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "File Information",
+      "item": [
+        {
+          "name": "Get Supported Formats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/supported-formats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "supported-formats"]
+            },
+            "description": "Get list of supported file formats and extensions"
+          },
+          "response": []
+        },
+        {
+          "name": "Upload Validated File",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/file/upload/{{validation_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "file", "upload", "{{validation_id}}"]
+            },
+            "description": "Upload a previously validated file to the main uploads directory using its validation_id. Replace {{validation_id}} with the actual validation_id from a previous validation response."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Root Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Check API health and status"
+          },
+          "response": []
+        },
+        {
+          "name": "Health Check Endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Dedicated health check endpoint"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "description": "Base URL for the Cymbal RAG API"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Add any pre-request scripts here",
+          "console.log('Making request to:', pm.request.url);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Add any test scripts here",
+          "pm.test('Response time is less than 5000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(5000);",
+          "});",
+          "",
+          "pm.test('Response has required headers', function () {",
+          "    pm.expect(pm.response.headers.get('content-type')).to.include('application/json');",
+          "});"
+        ]
+      }
+    }
+  ]
+}

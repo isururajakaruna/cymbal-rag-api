@@ -1,6 +1,6 @@
 {
   "rag": {
-    "chunk_size": 1000,
+    "chunk_size": 2000,
     "chunk_overlap": 200,
     "max_chunks_per_document": 50,
     "similarity_threshold": 0.7,
@@ -25,7 +25,7 @@
     "mixed_content_prompt": "comprehensive_analysis"
   },
   "vector_search": {
-    "dimensions": 768,
+    "dimensions": 3072,
     "distance_measure": "COSINE",
     "shard_size": "SHARD_SIZE_SMALL"
   },
