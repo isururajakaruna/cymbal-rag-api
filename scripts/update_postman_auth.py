@@ -36,7 +36,8 @@ def add_query_param_to_url(url_obj):
 
 def update_request_with_auth(request):
     """Update a single request to include authentication."""
-    if request.get('method') == 'GET':
+    # Update both GET and POST requests
+    if request.get('method') in ['GET', 'POST', 'DELETE', 'PUT', 'PATCH']:
         # Update raw URL
         if 'url' in request and 'raw' in request['url']:
             request['url']['raw'] = update_url_with_token(request['url']['raw'])
@@ -74,7 +75,7 @@ def main():
     with open('postman_collection.json', 'w') as f:
         json.dump(collection, f, indent=2)
     
-    print("✅ Postman collection updated with authentication token for all GET requests")
+    print("✅ Postman collection updated with authentication token for all requests")
 
 if __name__ == "__main__":
     main()

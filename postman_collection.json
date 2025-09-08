@@ -114,7 +114,7 @@
               ]
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/file/validate",
+              "raw": "{{base_url}}/api/v1/file/validate?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -123,6 +123,13 @@
                 "v1",
                 "file",
                 "validate"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Validate a PDF file for upload. This endpoint uploads the file to a temporary location, checks if it already exists, validates the file format, and performs content quality analysis using Gemini AI."
@@ -302,7 +309,7 @@
               ]
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/file/validate",
+              "raw": "{{base_url}}/api/v1/file/validate?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -311,6 +318,13 @@
                 "v1",
                 "file",
                 "validate"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Validate an image file (PNG) for upload. Images are processed using Gemini's multimodal capabilities to extract text content and assess quality."
@@ -344,7 +358,7 @@
               ]
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/file/validate",
+              "raw": "{{base_url}}/api/v1/file/validate?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -353,6 +367,13 @@
                 "v1",
                 "file",
                 "validate"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Validate an Excel file (XLSX) for upload. Excel files are processed using pandas to extract data from all sheets."
@@ -386,7 +407,7 @@
               ]
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/file/validate",
+              "raw": "{{base_url}}/api/v1/file/validate?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -395,6 +416,13 @@
                 "v1",
                 "file",
                 "validate"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Validate a CSV file for upload. CSV files are processed using pandas to extract structured data and convert it to readable text format."
@@ -441,7 +469,7 @@
               ]
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/upload/direct",
+              "raw": "{{base_url}}/api/v1/upload/direct?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -450,6 +478,13 @@
                 "v1",
                 "upload",
                 "direct"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Upload a file directly to the knowledge base. The file is processed, chunked based on configuration, embedded using Vertex AI, and stored in Vector Search. Empty pages are automatically skipped and tables are converted to structured format. Tags can be provided for categorizing and filtering files."
@@ -513,7 +548,7 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/upload/{{validation_id}}",
+              "raw": "{{base_url}}/api/v1/upload/{{validation_id}}?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -522,6 +557,13 @@
                 "v1",
                 "upload",
                 "{{validation_id}}"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Upload a file using its validation ID. This endpoint moves the file from the temporary location to the uploads directory and processes it for the knowledge base."
@@ -593,7 +635,7 @@
               ]
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/upload/direct",
+              "raw": "{{base_url}}/api/v1/upload/direct?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -602,6 +644,13 @@
                 "v1",
                 "upload",
                 "direct"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Example of uploading an HR document with appropriate tags. This demonstrates how to categorize files by department or content type for better organization and targeted searches."
@@ -1031,7 +1080,7 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/upload/delete?filename={{filename}}",
+              "raw": "{{base_url}}/api/v1/upload/delete?filename={{filename}}&token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1046,6 +1095,11 @@
                   "key": "filename",
                   "value": "{{filename}}",
                   "description": "Name of the file to delete (as returned by list API)"
+                },
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
                 }
               ]
             },
@@ -1152,7 +1206,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/search/rag",
+              "raw": "{{base_url}}/api/v1/search/rag?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1161,6 +1215,13 @@
                 "v1",
                 "search",
                 "rag"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Perform RAG search using POST method. This endpoint takes a search query, performs vector similarity search, groups results by file, and generates a comprehensive response using Gemini AI. Supports filtering by file IDs, similarity thresholds, and tags for targeted searches."
@@ -1285,7 +1346,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/search/rag",
+              "raw": "{{base_url}}/api/v1/search/rag?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1294,6 +1355,13 @@
                 "v1",
                 "search",
                 "rag"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Example of RAG search with tag filtering. This demonstrates how to search for content only within files that have specific tags. Useful for targeted searches within categorized content."
@@ -1365,7 +1433,7 @@
               }
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/search/",
+              "raw": "{{base_url}}/api/v1/search/?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1374,6 +1442,13 @@
                 "v1",
                 "search",
                 ""
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Legacy search endpoint (deprecated). Use RAG Search endpoints instead for enhanced functionality."
@@ -1432,7 +1507,7 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/storage/clear",
+              "raw": "{{base_url}}/api/v1/storage/clear?token={auth_token}",
               "host": [
                 "{{base_url}}"
               ],
@@ -1441,6 +1516,13 @@
                 "v1",
                 "storage",
                 "clear"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
               ]
             },
             "description": "Clear all files from both temporary (_tmp) and uploads directories in Google Cloud Storage. Use with caution as this will delete all uploaded files and their embeddings."
