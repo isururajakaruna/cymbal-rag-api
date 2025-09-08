@@ -32,6 +32,24 @@ print_error() {
     echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"
 }
 
+# Function to detect operating system
+detect_os() {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Check for specific Linux distributions
+        if [ -f /etc/debian_version ]; then
+            echo "debian"
+        elif [ -f /etc/redhat-release ]; then
+            echo "redhat"
+        else
+            echo "linux"
+        fi
+    else
+        echo "unknown"
+    fi
+}
+
 # Function to check if conda is available
 check_conda() {
     if ! command -v conda &> /dev/null; then
@@ -41,6 +59,85 @@ check_conda() {
         exit 1
     fi
     print_success "Conda is available"
+}
+
+# Function to check and install system dependencies
+check_system_dependencies() {
+    print_status "Checking system dependencies..."
+    
+    # Check if poppler is installed (required for pdf2image)
+    if ! command -v pdftoppm &> /dev/null; then
+        print_warning "poppler is not installed (required for pdf2image)"
+        
+        OS=$(detect_os)
+        case $OS in
+            "macos")
+                print_status "Detected macOS, installing poppler using brew..."
+                if command -v brew &> /dev/null; then
+                    brew install poppler
+                    if [ $? -eq 0 ]; then
+                        print_success "poppler installed successfully"
+                    else
+                        print_error "Failed to install poppler"
+                        print_status "Please install poppler manually: brew install poppler"
+                        exit 1
+                    fi
+                else
+                    print_error "Homebrew is not installed!"
+                    print_status "Please install Homebrew first: https://brew.sh/"
+                    print_status "Then run: brew install poppler"
+                    exit 1
+                fi
+                ;;
+            "debian")
+                print_status "Detected Debian/Ubuntu, installing poppler using apt..."
+                if command -v apt-get &> /dev/null; then
+                    sudo apt-get update
+                    sudo apt-get install -y poppler-utils
+                    if [ $? -eq 0 ]; then
+                        print_success "poppler installed successfully"
+                    else
+                        print_error "Failed to install poppler"
+                        print_status "Please install poppler manually: sudo apt-get install poppler-utils"
+                        exit 1
+                    fi
+                else
+                    print_error "apt-get is not available!"
+                    print_status "Please install poppler manually: sudo apt-get install poppler-utils"
+                    exit 1
+                fi
+                ;;
+            "redhat")
+                print_status "Detected RedHat/CentOS, installing poppler using yum/dnf..."
+                if command -v dnf &> /dev/null; then
+                    sudo dnf install -y poppler-utils
+                elif command -v yum &> /dev/null; then
+                    sudo yum install -y poppler-utils
+                else
+                    print_error "Neither dnf nor yum is available!"
+                    print_status "Please install poppler manually: sudo yum install poppler-utils"
+                    exit 1
+                fi
+                if [ $? -eq 0 ]; then
+                    print_success "poppler installed successfully"
+                else
+                    print_error "Failed to install poppler"
+                    print_status "Please install poppler manually: sudo yum install poppler-utils"
+                    exit 1
+                fi
+                ;;
+            *)
+                print_error "Unsupported operating system: $OSTYPE"
+                print_status "Please install poppler manually:"
+                print_status "  macOS: brew install poppler"
+                print_status "  Ubuntu/Debian: sudo apt-get install poppler-utils"
+                print_status "  CentOS/RHEL: sudo yum install poppler-utils"
+                exit 1
+                ;;
+        esac
+    else
+        print_success "poppler is already installed"
+    fi
 }
 
 # Function to check if environment already exists
@@ -134,7 +231,7 @@ setup_env_file() {
             print_warning "Please edit .env file with your actual configuration values"
         else
             print_warning ".env-template not found, creating basic .env file..."
-            cat > .env << EOF
+            cat > .env << 'ENVEOF'
 # Google Cloud Configuration
 GOOGLE_CLOUD_PROJECT_ID=your-project-id
 GOOGLE_APPLICATION_CREDENTIALS=service-account-key.json
@@ -160,7 +257,7 @@ API_WORKERS=4
 
 # Authentication Configuration
 API_AUTH_TOKEN=your-secure-random-token-here
-EOF
+ENVEOF
             print_warning "Please edit .env file with your actual configuration values"
         fi
     else
@@ -197,6 +294,9 @@ main() {
     
     # Check prerequisites
     check_conda
+    
+    # Check system dependencies
+    check_system_dependencies
     
     # Check if environment exists
     check_environment
