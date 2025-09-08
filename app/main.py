@@ -12,6 +12,7 @@ from app.api.v1 import files, search, validate, upload
 from app.core.config import rag_config, settings
 from app.core.exceptions import RAGAPIException
 from app.models.schemas import ErrorResponse, HealthCheckResponse
+from app.middleware.auth import AuthMiddleware
 
 
 @asynccontextmanager
@@ -47,6 +48,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add authentication middleware
+app.add_middleware(AuthMiddleware)
 
 # Include routers
 app.include_router(files.router, prefix="/api/v1/files", tags=["files"])

@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0", env="API_HOST")
     api_port: int = Field(default=8000, env="API_PORT")
     api_workers: int = Field(default=1, env="API_WORKERS")
+    
+    # Authentication Configuration
+    api_auth_token: str = Field(default="cymbal-rag-secure-token-2024", env="API_AUTH_TOKEN")
 
     class Config:
         env_file = ".env"

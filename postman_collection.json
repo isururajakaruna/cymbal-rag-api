@@ -12,6 +12,11 @@
       "description": "Base URL for the Cymbal RAG API"
     },
     {
+      "key": "auth_token",
+      "value": "InaqhBh3P0MaJCBQnxF05DsdpWjbESpLJvoa-2tfwxI",
+      "description": "Authentication token for API access"
+    },
+    {
       "key": "search_query",
       "value": "WHO & AOH Cut-Off Time",
       "description": "Default search query for testing RAG search"
@@ -28,9 +33,23 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/file/supported-formats",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "supported-formats"]
+              "raw": "{{base_url}}/api/v1/file/supported-formats?token={auth_token}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "file",
+                "supported-formats"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
+              ]
             },
             "description": "Retrieve list of supported file formats for upload"
           },
@@ -42,8 +61,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/file/supported-formats",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "file", "supported-formats"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "file",
+                    "supported-formats"
+                  ]
                 }
               },
               "status": "OK",
@@ -89,8 +115,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/file/validate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "validate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "file",
+                "validate"
+              ]
             },
             "description": "Validate a PDF file for upload. This endpoint uploads the file to a temporary location, checks if it already exists, validates the file format, and performs content quality analysis using Gemini AI."
           },
@@ -122,8 +155,15 @@
                 },
                 "url": {
                   "raw": "{{base_url}}/api/v1/file/validate",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "file", "validate"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "file",
+                    "validate"
+                  ]
                 }
               },
               "status": "OK",
@@ -165,8 +205,15 @@
                 },
                 "url": {
                   "raw": "{{base_url}}/api/v1/file/validate",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "file", "validate"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "file",
+                    "validate"
+                  ]
                 }
               },
               "status": "Conflict",
@@ -203,8 +250,15 @@
                 },
                 "url": {
                   "raw": "{{base_url}}/api/v1/file/validate",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "file", "validate"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "file",
+                    "validate"
+                  ]
                 }
               },
               "status": "Bad Request",
@@ -249,8 +303,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/file/validate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "validate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "file",
+                "validate"
+              ]
             },
             "description": "Validate an image file (PNG) for upload. Images are processed using Gemini's multimodal capabilities to extract text content and assess quality."
           },
@@ -284,8 +345,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/file/validate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "validate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "file",
+                "validate"
+              ]
             },
             "description": "Validate an Excel file (XLSX) for upload. Excel files are processed using pandas to extract data from all sheets."
           },
@@ -319,8 +387,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/file/validate",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "file", "validate"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "file",
+                "validate"
+              ]
             },
             "description": "Validate a CSV file for upload. CSV files are processed using pandas to extract structured data and convert it to readable text format."
           },
@@ -367,8 +442,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/upload/direct",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "upload", "direct"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "upload",
+                "direct"
+              ]
             },
             "description": "Upload a file directly to the knowledge base. The file is processed, chunked based on configuration, embedded using Vertex AI, and stored in Vector Search. Empty pages are automatically skipped and tables are converted to structured format. Tags can be provided for categorizing and filtering files."
           },
@@ -400,8 +482,15 @@
                 },
                 "url": {
                   "raw": "{{base_url}}/api/v1/upload/direct",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "upload", "direct"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "upload",
+                    "direct"
+                  ]
                 }
               },
               "status": "OK",
@@ -425,8 +514,15 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/v1/upload/{{validation_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "upload", "{{validation_id}}"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "upload",
+                "{{validation_id}}"
+              ]
             },
             "description": "Upload a file using its validation ID. This endpoint moves the file from the temporary location to the uploads directory and processes it for the knowledge base."
           },
@@ -438,8 +534,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/upload/{{validation_id}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "upload", "{{validation_id}}"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "upload",
+                    "{{validation_id}}"
+                  ]
                 }
               },
               "status": "OK",
@@ -491,8 +594,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/upload/direct",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "upload", "direct"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "upload",
+                "direct"
+              ]
             },
             "description": "Example of uploading an HR document with appropriate tags. This demonstrates how to categorize files by department or content type for better organization and targeted searches."
           },
@@ -532,8 +642,15 @@
                 },
                 "url": {
                   "raw": "{{base_url}}/api/v1/upload/direct",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "upload", "direct"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "upload",
+                    "direct"
+                  ]
                 }
               },
               "status": "OK",
@@ -562,9 +679,16 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/files/list?sort_by=date&limit=10&offset=0&search=&tags=",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "files", "list"],
+              "raw": "{{base_url}}/api/v1/files/list?sort_by=date&limit=10&offset=0&search=&tags=&token={auth_token}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files",
+                "list"
+              ],
               "query": [
                 {
                   "key": "sort_by",
@@ -590,6 +714,11 @@
                   "key": "tags",
                   "value": "",
                   "description": "Comma-separated list of tags to filter by (e.g., 'product,hr')"
+                },
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
                 }
               ]
             },
@@ -603,8 +732,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/files/list?sort_by=date&limit=10&offset=0&search=",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "files", "list"],
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "files",
+                    "list"
+                  ],
                   "query": [
                     {
                       "key": "sort_by",
@@ -645,14 +781,26 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/files/list?tags=product,catalog",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "files", "list"],
+              "raw": "{{base_url}}/api/v1/files/list?tags=product,catalog&token={auth_token}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files",
+                "list"
+              ],
               "query": [
                 {
                   "key": "tags",
                   "value": "product,catalog",
                   "description": "Filter files by specific tags"
+                },
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
                 }
               ]
             },
@@ -666,8 +814,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/files/list?tags=product,catalog",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "files", "list"],
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "files",
+                    "list"
+                  ],
                   "query": [
                     {
                       "key": "tags",
@@ -696,14 +851,26 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/files/view?filename={{filename}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "files", "view"],
+              "raw": "{{base_url}}/api/v1/files/view?filename={{filename}}&token={auth_token}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files",
+                "view"
+              ],
               "query": [
                 {
                   "key": "filename",
                   "value": "{{filename}}",
                   "description": "Name of the file to download (as returned by list API)"
+                },
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
                 }
               ]
             },
@@ -717,8 +884,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/files/view?filename={{filename}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "files", "view"],
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "files",
+                    "view"
+                  ],
                   "query": [
                     {
                       "key": "filename",
@@ -750,8 +924,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/files/view?filename=nonexistent.pdf",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "files", "view"],
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "files",
+                    "view"
+                  ],
                   "query": [
                     {
                       "key": "filename",
@@ -780,14 +961,26 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/files/embedding-stats?filename={{filename}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "files", "embedding-stats"],
+              "raw": "{{base_url}}/api/v1/files/embedding-stats?filename={{filename}}&token={auth_token}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "files",
+                "embedding-stats"
+              ],
               "query": [
                 {
                   "key": "filename",
                   "value": "{{filename}}",
                   "description": "Name of the file to get stats for (as returned by list API)"
+                },
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
                 }
               ]
             },
@@ -801,8 +994,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/files/embedding-stats?filename={{filename}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "files", "embedding-stats"],
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "files",
+                    "embedding-stats"
+                  ],
                   "query": [
                     {
                       "key": "filename",
@@ -832,8 +1032,15 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/v1/upload/delete?filename={{filename}}",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "upload", "delete"],
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "upload",
+                "delete"
+              ],
               "query": [
                 {
                   "key": "filename",
@@ -852,8 +1059,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/upload/delete?filename={{filename}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "upload", "delete"],
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "upload",
+                    "delete"
+                  ],
                   "query": [
                     {
                       "key": "filename",
@@ -881,8 +1095,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/upload/delete?filename=nonexistent.pdf",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "upload", "delete"],
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "upload",
+                    "delete"
+                  ],
                   "query": [
                     {
                       "key": "filename",
@@ -932,8 +1153,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/search/rag",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "search", "rag"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                "rag"
+              ]
             },
             "description": "Perform RAG search using POST method. This endpoint takes a search query, performs vector similarity search, groups results by file, and generates a comprehensive response using Gemini AI. Supports filtering by file IDs, similarity thresholds, and tags for targeted searches."
           },
@@ -959,8 +1187,15 @@
                 },
                 "url": {
                   "raw": "{{base_url}}/api/v1/search/rag",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "search", "rag"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "search",
+                    "rag"
+                  ]
                 }
               },
               "status": "OK",
@@ -973,7 +1208,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"success\": true,\n  \"query\": \"WHO & AOH Cut-Off Time\",\n  \"files\": [\n    {\n      \"name\": \"post_pdf.pdf\",\n      \"path\": \"uploads/post_pdf.pdf\",\n      \"file_type\": \"application/pdf (.pdf)\",\n      \"last_updated\": \"2025-09-07T07:07:07.434000Z\",\n      \"size\": 104844,\n      \"tags\": [\"product\", \"catalog\", \"electronics\"],\n      \"matched_chunks\": [\n        {\n          \"content\": \"## Table: WHO & AOH Cut-Off Time\\n### Definition\\n- Within Office Hours (WOH)\\n- After Office Hours (AOH)\\n### Day\\n- Mondays to Fridays *Excluding Public Holidays*\\n- Mondays to Fridays *Excluding Public Holidays*, Saturdays, Sundays & Public Holidays\\n### Time of Call\\n- 9:00am – 6:00pm\\n- 6:01pm – 11:59pm\\n- 12:00am – 8:59am\",\n          \"file_id\": \"post_pdf.pdf\",\n          \"filename\": \"post_pdf.pdf\",\n          \"chunk_index\": 0,\n          \"similarity_score\": 0.39130622148513794,\n          \"metadata\": {\n            \"page_number\": \"1\",\n            \"type\": \"pdf_page\",\n            \"processor\": \"gemini_multimodal\",\n            \"filename\": \"post_pdf.pdf\",\n            \"chunk_size\": \"1966\",\n            \"chunk_index\": \"0\",\n            \"total_chunks\": \"6\",\n            \"original_filename\": \"post_pdf.pdf\",\n            \"content_type\": \"application/pdf\",\n            \"content\": \"[Full chunk content]\"\n          }\n        }\n      ]\n    }\n  ],\n  \"total_files\": 1,\n  \"total_chunks\": 3,\n  \"rag_response\": \"The 'WHO & AOH Cut-Off Time' refers to the timeframes for handling 'Postal Critical – Top Priority Cases' and 'Urgent Redelivery for Registered Service'. Here's a breakdown of the cut-off times: ### Definitions: * **Within Office Hours (WOH)** * **After Office Hours (AOH)** ### Day and Time of Call: * **Mondays to Fridays (Excluding Public Holidays)** * 9:00am – 6:00 pm * **Mondays to Fridays (Excluding Public Holidays), Saturdays, Sundays & Public Holidays** * 6:01 pm – 11:59 pm * 12:00 am – 8:59 am **Note:** The process described for these cases is only available WITHIN OFFICE HOURS ONLY and can only be handled by SMEs and above.\",\n  \"processing_time_ms\": 7758.564233779907,\n  \"search_parameters\": {\n    \"ktop\": 10,\n    \"threshold\": 0.7,\n    \"file_ids\": [\"post_pdf.pdf\"]\n  }\n}"
+              "body": "{\n  \"success\": true,\n  \"query\": \"WHO & AOH Cut-Off Time\",\n  \"files\": [\n    {\n      \"name\": \"post_pdf.pdf\",\n      \"path\": \"uploads/post_pdf.pdf\",\n      \"file_type\": \"application/pdf (.pdf)\",\n      \"last_updated\": \"2025-09-07T07:07:07.434000Z\",\n      \"size\": 104844,\n      \"tags\": [\"product\", \"catalog\", \"electronics\"],\n      \"matched_chunks\": [\n        {\n          \"content\": \"## Table: WHO & AOH Cut-Off Time\\n### Definition\\n- Within Office Hours (WOH)\\n- After Office Hours (AOH)\\n### Day\\n- Mondays to Fridays *Excluding Public Holidays*\\n- Mondays to Fridays *Excluding Public Holidays*, Saturdays, Sundays & Public Holidays\\n### Time of Call\\n- 9:00am \u2013 6:00pm\\n- 6:01pm \u2013 11:59pm\\n- 12:00am \u2013 8:59am\",\n          \"file_id\": \"post_pdf.pdf\",\n          \"filename\": \"post_pdf.pdf\",\n          \"chunk_index\": 0,\n          \"similarity_score\": 0.39130622148513794,\n          \"metadata\": {\n            \"page_number\": \"1\",\n            \"type\": \"pdf_page\",\n            \"processor\": \"gemini_multimodal\",\n            \"filename\": \"post_pdf.pdf\",\n            \"chunk_size\": \"1966\",\n            \"chunk_index\": \"0\",\n            \"total_chunks\": \"6\",\n            \"original_filename\": \"post_pdf.pdf\",\n            \"content_type\": \"application/pdf\",\n            \"content\": \"[Full chunk content]\"\n          }\n        }\n      ]\n    }\n  ],\n  \"total_files\": 1,\n  \"total_chunks\": 3,\n  \"rag_response\": \"The 'WHO & AOH Cut-Off Time' refers to the timeframes for handling 'Postal Critical \u2013 Top Priority Cases' and 'Urgent Redelivery for Registered Service'. Here's a breakdown of the cut-off times: ### Definitions: * **Within Office Hours (WOH)** * **After Office Hours (AOH)** ### Day and Time of Call: * **Mondays to Fridays (Excluding Public Holidays)** * 9:00am \u2013 6:00 pm * **Mondays to Fridays (Excluding Public Holidays), Saturdays, Sundays & Public Holidays** * 6:01 pm \u2013 11:59 pm * 12:00 am \u2013 8:59 am **Note:** The process described for these cases is only available WITHIN OFFICE HOURS ONLY and can only be handled by SMEs and above.\",\n  \"processing_time_ms\": 7758.564233779907,\n  \"search_parameters\": {\n    \"ktop\": 10,\n    \"threshold\": 0.7,\n    \"file_ids\": [\"post_pdf.pdf\"]\n  }\n}"
             }
           ]
         },
@@ -983,9 +1218,16 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/search/rag?query={{search_query}}&ktop=10&threshold=0.7&file_ids=post_pdf.pdf,image_with_text.png&tags=product,catalog",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "search", "rag"],
+              "raw": "{{base_url}}/api/v1/search/rag?query={{search_query}}&ktop=10&threshold=0.7&file_ids=post_pdf.pdf,image_with_text.png&tags=product,catalog&token={auth_token}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                "rag"
+              ],
               "query": [
                 {
                   "key": "query",
@@ -1011,6 +1253,11 @@
                   "key": "tags",
                   "value": "product,catalog",
                   "description": "Comma-separated list of tags to filter by"
+                },
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
                 }
               ]
             },
@@ -1039,8 +1286,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/search/rag",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "search", "rag"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                "rag"
+              ]
             },
             "description": "Example of RAG search with tag filtering. This demonstrates how to search for content only within files that have specific tags. Useful for targeted searches within categorized content."
           },
@@ -1066,8 +1320,15 @@
                 },
                 "url": {
                   "raw": "{{base_url}}/api/v1/search/rag",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "search", "rag"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "search",
+                    "rag"
+                  ]
                 }
               },
               "status": "OK",
@@ -1105,8 +1366,15 @@
             },
             "url": {
               "raw": "{{base_url}}/api/v1/search/",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "search", ""]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                ""
+              ]
             },
             "description": "Legacy search endpoint (deprecated). Use RAG Search endpoints instead for enhanced functionality."
           },
@@ -1118,9 +1386,16 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/v1/search/?query={{search_query}}&ktop=5&threshold=0.5",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "search", ""],
+              "raw": "{{base_url}}/api/v1/search/?query={{search_query}}&ktop=5&threshold=0.5&token={auth_token}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "search",
+                ""
+              ],
               "query": [
                 {
                   "key": "query",
@@ -1133,6 +1408,11 @@
                 {
                   "key": "threshold",
                   "value": "0.5"
+                },
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
                 }
               ]
             },
@@ -1153,8 +1433,15 @@
             "header": [],
             "url": {
               "raw": "{{base_url}}/api/v1/storage/clear",
-              "host": ["{{base_url}}"],
-              "path": ["api", "v1", "storage", "clear"]
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "storage",
+                "clear"
+              ]
             },
             "description": "Clear all files from both temporary (_tmp) and uploads directories in Google Cloud Storage. Use with caution as this will delete all uploaded files and their embeddings."
           },
@@ -1166,8 +1453,15 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/api/v1/storage/clear",
-                  "host": ["{{base_url}}"],
-                  "path": ["api", "v1", "storage", "clear"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "storage",
+                    "clear"
+                  ]
                 }
               },
               "status": "OK",
@@ -1190,9 +1484,20 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/health",
-              "host": ["{{base_url}}"],
-              "path": ["health"]
+              "raw": "{{base_url}}/health?token={auth_token}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{auth_token}}",
+                  "description": "Authentication token"
+                }
+              ]
             },
             "description": "Check the health status of the API server."
           },
@@ -1204,8 +1509,12 @@
                 "header": [],
                 "url": {
                   "raw": "{{base_url}}/health",
-                  "host": ["{{base_url}}"],
-                  "path": ["health"]
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "health"
+                  ]
                 }
               },
               "status": "OK",

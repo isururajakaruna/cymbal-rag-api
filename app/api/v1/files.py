@@ -16,13 +16,14 @@ router = APIRouter()
 class FileInfo:
     """File information model."""
     
-    def __init__(self, name: str, path: str, file_type: str, last_updated: datetime, size: int, tags: List[str] = None):
+    def __init__(self, name: str, path: str, file_type: str, last_updated: datetime, size: int, tags: List[str] = None, title: str = None):
         self.name = name
         self.path = path
         self.file_type = file_type
         self.last_updated = last_updated
         self.size = size
         self.tags = tags or []
+        self.title = title
 
 
 async def list_files_from_gcs(
@@ -61,6 +62,11 @@ async def list_files_from_gcs(
                 if tags_str:
                     file_tags = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
             
+            # Extract title from blob metadata
+            file_title = None
+            if blob.metadata and "title" in blob.metadata:
+                file_title = blob.metadata["title"]
+            
             # Apply tag filter if provided
             if tags:
                 # Check if any of the requested tags match any of the file tags
@@ -88,7 +94,8 @@ async def list_files_from_gcs(
                 file_type=file_type,
                 last_updated=blob.time_created or blob.updated,
                 size=blob.size or 0,
-                tags=file_tags
+                tags=file_tags,
+                title=file_title
             )
             files.append(file_info)
         
@@ -166,7 +173,8 @@ async def list_files(
                 "file_type": file_info.file_type,
                 "last_updated": file_info.last_updated.isoformat(),
                 "size": file_info.size,
-                "tags": file_info.tags
+                "tags": file_info.tags,
+                "title": file_info.title
             })
         
         return {
