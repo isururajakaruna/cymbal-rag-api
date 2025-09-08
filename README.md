@@ -2,6 +2,10 @@
 
 A comprehensive RAG (Retrieval-Augmented Generation) API built with FastAPI and Google Cloud services, leveraging Vertex AI Vector Search for semantic document retrieval and Google Gemini for response generation.
 
+## API Documentation
+
+For detailed API reference, request/response schemas, and examples, see the [API Documentation](docs/API_DOCUMENTATION.md).
+
 ## Background
 
 This system is designed to provide intelligent document search and question-answering capabilities by combining:
