@@ -83,5 +83,4 @@ credentials.json
 
 # Test results
 vector_search_evaluation_results.json
-distance_distribution.png
 .server.pid

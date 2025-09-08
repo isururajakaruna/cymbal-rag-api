@@ -146,28 +146,112 @@ python scripts/quick_api_test.py
 
 ## Testing Framework
 
-The system includes a comprehensive testing framework that evaluates vector search performance:
+The system includes a comprehensive testing framework that evaluates vector search performance through automated testing and performance analysis.
 
-### Performance Evaluation
+### Vector Search Performance Testing
+
+The system provides an automated testing framework that evaluates the effectiveness of the vector search system by testing both related and unrelated queries against uploaded documents.
+
+#### Test Methodology
+
+The testing process follows a structured approach:
+
+1. **Document Upload**: Uploads a test document (`test_data/product_catalog.csv`) to the knowledge base
+2. **Query Testing**: Executes 20 test queries (10 related, 10 unrelated) against the uploaded content
+3. **Performance Analysis**: Measures similarity scores, response times, and retrieval accuracy
+4. **Visualization**: Generates distribution plots and statistical analysis
+5. **Cleanup**: Removes test data after evaluation
+
+#### Running the Tests
 
 ```bash
 # Run vector search evaluation
 python scripts/test_vector_search_evaluation.py
 ```
 
-This script:
-- Uploads test documents to the knowledge base
-- Tests with related and unrelated queries
-- Measures similarity scores and response times
-- Generates performance graphs and statistics
-- Saves results to `test_results/` directory
+#### Test Query Categories
 
-### Test Results
+**Related Queries** (10 queries):
+- Product-specific questions: "What is the wireless mouse P001?"
+- Category searches: "What electronics products are available?"
+- Supplier queries: "Show me products from TechCorp supplier"
+- Price inquiries: "What is the price of the office chair P003?"
+- Inventory questions: "What products are in stock?"
 
-Results are automatically saved to the `test_results/` directory including:
-- `vector_search_evaluation_results.json` - Detailed performance metrics
-- `distance_distribution.png` - Visualization of similarity score distributions
-- `performance_summary.txt` - Summary of test results
+**Unrelated Queries** (10 queries):
+- General knowledge: "What is a banana?", "What is the capital of France?"
+- Unrelated topics: "How to cook pasta?", "Tell me about quantum physics"
+- Non-business content: "How to play guitar?", "How to learn Spanish?"
+
+#### Test Results and Analysis
+
+The testing framework generates comprehensive results including:
+
+![Vector Search Performance Analysis](docs/distance_distribution.png)
+
+**Performance Metrics:**
+- Average similarity scores for related vs unrelated queries
+- Distance distribution analysis
+- Optimal threshold recommendations
+- Response time measurements
+- Retrieval accuracy statistics
+
+**Generated Files:**
+- `test_results/vector_search_evaluation_results.json` - Detailed performance metrics
+- `test_results/distance_distribution.png` - Visualization of similarity score distributions
+- Statistical analysis and threshold recommendations
+
+#### Extending the Testing Framework
+
+The testing framework is designed to be easily extensible:
+
+**Adding More Queries:**
+```python
+# Edit scripts/test_vector_search_evaluation.py
+TEST_QUERIES = {
+    "related": [
+        # Add more related queries here
+        "Your custom related query",
+    ],
+    "unrelated": [
+        # Add more unrelated queries here
+        "Your custom unrelated query",
+    ]
+}
+```
+
+**Custom Test Documents:**
+- Replace `TEST_FILE_PATH` with your own test document
+- Ensure the document contains relevant content for testing
+- Adjust query categories based on your document content
+
+**Enhanced Metrics:**
+- Modify `analyze_search_results()` function to capture additional metrics
+- Add custom visualization functions for specific analysis needs
+- Implement domain-specific evaluation criteria
+
+#### Reproducing Test Results
+
+To reproduce the test results shown in the documentation:
+
+1. **Start the API server:**
+   ```bash
+   ./run.sh start
+   ```
+
+2. **Run the evaluation script:**
+   ```bash
+   python scripts/test_vector_search_evaluation.py
+   ```
+
+3. **View results:**
+   - Check console output for real-time results
+   - Open `test_results/distance_distribution.png` for visual analysis
+   - Review `test_results/vector_search_evaluation_results.json` for detailed metrics
+
+4. **Clean up:**
+   - The script automatically cleans up test data
+   - Results remain in `test_results/` directory for analysis
 
 ### Unit Tests
 
