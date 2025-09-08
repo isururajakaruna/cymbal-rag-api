@@ -1,8 +1,10 @@
 #!/bin/bash
 
 # Cymbal RAG API Server Startup Script
-# Usage: ./start_server.sh [port]
+# Usage: ./start_server.sh [port] [workers] [dev]
 # Default port: 8000
+# Default workers: 4
+# Add 'dev' as third argument for development mode with reload
 
 # Set default port
 PORT=${1:-8000}
@@ -53,4 +55,15 @@ echo ""
 
 # Use conda run to execute uvicorn in the cymbal-rag environment
 # The --no-capture-output flag ensures logs are visible
-conda run -n cymbal-rag --no-capture-output uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload --log-level info
+# Use multiple workers for better concurrency (like Flask)
+WORKERS=${2:-4}  # Default to 4 workers, can be overridden as second argument
+
+if [ "$3" = "dev" ]; then
+    # Development mode with reload
+    echo -e "${YELLOW}Starting in development mode with reload...${NC}"
+    conda run -n cymbal-rag --no-capture-output uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload --log-level info
+else
+    # Production mode with multiple workers
+    echo -e "${YELLOW}Starting in production mode with ${WORKERS} workers...${NC}"
+    conda run -n cymbal-rag --no-capture-output uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers $WORKERS --log-level info
+fi

@@ -15,15 +15,6 @@
     "pdf_to_image_dpi": 300,
     "excel_processing_enabled": true
   },
-  "gemini_processing": {
-    "model_name": "gemini-1.5-flash",
-    "max_tokens": 1024,
-    "temperature": 0.1,
-    "enable_content_detection": true,
-    "table_extraction_prompt": "extract_tables",
-    "diagram_analysis_prompt": "analyze_diagrams",
-    "mixed_content_prompt": "comprehensive_analysis"
-  },
   "vector_search": {
     "dimensions": 3072,
     "distance_measure": "COSINE",

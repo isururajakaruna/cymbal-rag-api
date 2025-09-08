@@ -1,0 +1,11 @@
+Product_ID,Product_Name,Category,Description,Price,Stock_Quantity,Supplier
+P001,Wireless Mouse,Electronics,"Ergonomic wireless mouse with 2.4GHz connectivity",29.99,150,TechCorp
+P002,Mechanical Keyboard,Electronics,"RGB backlit mechanical keyboard with blue switches",89.99,75,KeyTech
+P003,Office Chair,Furniture,"Ergonomic office chair with lumbar support",199.99,25,OfficeMax
+P004,Monitor Stand,Furniture,"Adjustable aluminum monitor stand with cable management",49.99,100,DeskPro
+P005,USB-C Hub,Electronics,"7-in-1 USB-C hub with HDMI Ethernet and USB ports",79.99,200,ConnectTech
+P006,Desk Lamp,Furniture,"LED desk lamp with adjustable brightness and color temperature",39.99,80,LightWorks
+P007,Webcam,Electronics,"4K webcam with autofocus and noise cancellation",129.99,50,CamTech
+P008,Desk Organizer,Furniture,"Multi-compartment desk organizer with pen holders",19.99,120,OrganizePro
+P009,Bluetooth Speaker,Electronics,"Portable Bluetooth speaker with 20W output",59.99,90,AudioMax
+P010,Standing Desk,Furniture,"Height-adjustable standing desk with memory presets",399.99,15,DeskMaster
