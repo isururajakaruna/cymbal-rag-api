@@ -22,6 +22,7 @@ load_dotenv()
 
 # Configuration
 API_BASE_URL = "http://localhost:8000/api/v1"
+API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "InaqhBh3P0MaJCBQnxF05DsdpWjbESpLJvoa-2tfwxI")
 TEST_FILE_PATH = "test_data/product_catalog.csv"
 TEST_QUERIES = {
     "related": [
@@ -58,12 +59,12 @@ def upload_test_file() -> bool:
         print(f"❌ Test file not found: {TEST_FILE_PATH}")
         return False
     
-    url = f"{API_BASE_URL}/upload/direct"
+    url = f"{API_BASE_URL}/upload/direct?token={API_AUTH_TOKEN}"
     
     try:
         with open(TEST_FILE_PATH, 'rb') as f:
             files = {'file': f}
-            data = {'replace_existing': 'true'}
+            data = {'replace_existing': 'true', 'tags': 'test,product,catalog'}
             response = requests.post(url, files=files, data=data, timeout=60)
             response.raise_for_status()
             result = response.json()
@@ -106,7 +107,7 @@ def cleanup_test_file() -> bool:
 
 def make_rag_request(query: str, ktop: int = 10, threshold: float = 0.8) -> Dict[str, Any]:
     """Make a RAG search request to the API."""
-    url = f"{API_BASE_URL}/search/rag"
+    url = f"{API_BASE_URL}/search/rag?token={API_AUTH_TOKEN}"
     payload = {
         "query": query,
         "ktop": ktop,
@@ -176,7 +177,7 @@ def analyze_search_results(results: Dict[str, Any], query: str, query_type: str)
 
 # Removed threshold sensitivity testing as we focus on top results
 
-def create_distance_plot(related_distances: List[float], unrelated_distances: List[float], save_path: str = "distance_distribution.png"):
+def create_distance_plot(related_distances: List[float], unrelated_distances: List[float], save_path: str = "test_results/distance_distribution.png"):
     """Create a plot showing the distribution of distances for related vs unrelated queries."""
     print(f"\n📊 Creating distance distribution plot...")
     
@@ -360,10 +361,10 @@ def run_comprehensive_evaluation():
         unrelated_distances = [r["top_distance"] for r in unrelated_results if r["top_distance"] is not None]
         
         if related_distances and unrelated_distances:
-            create_distance_plot(related_distances, unrelated_distances)
+            create_distance_plot(related_distances, unrelated_distances, "test_results/distance_distribution.png")
     
     # Save detailed results
-    with open("vector_search_evaluation_results.json", "w") as f:
+    with open("test_results/vector_search_evaluation_results.json", "w") as f:
         json.dump({
             "timestamp": time.time(),
             "all_results": all_results,
@@ -374,7 +375,7 @@ def run_comprehensive_evaluation():
             }
         }, f, indent=2)
     
-    print(f"\n💾 Detailed results saved to: vector_search_evaluation_results.json")
+    print(f"\n💾 Detailed results saved to: test_results/vector_search_evaluation_results.json")
     
     # Cleanup test file
     cleanup_test_file()

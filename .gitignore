@@ -68,7 +68,7 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-test_data/
+test_results/
 *.log
 logs/
 temp/
@@ -84,3 +84,4 @@ credentials.json
 # Test results
 vector_search_evaluation_results.json
 distance_distribution.png
+.server.pid
