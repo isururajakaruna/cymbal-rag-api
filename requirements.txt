@@ -1,27 +1,60 @@
+# Core FastAPI and server
 fastapi==0.104.1
-uvicorn[standard]==0.24.0
-google-cloud-aiplatform==1.71.1
-google-cloud-documentai==2.25.0
-google-cloud-storage==2.15.0
-vertexai==1.71.1
-pydantic==2.5.0
-pydantic-settings==2.1.0
+uvicorn==0.24.0
 python-multipart==0.0.6
 aiofiles==23.2.1
 httpx==0.25.2
+
+# Google Cloud services
+google-cloud-aiplatform==1.71.1
+google-cloud-documentai==2.25.0
+google-cloud-storage==2.15.0
+google-cloud-discoveryengine==0.13.11
+google-cloud-core==2.4.3
+google-cloud-resource-manager==1.14.2
+google-cloud-bigquery==3.36.0
+vertexai==1.71.1
+google-generativeai==0.8.5
+google-api-core==2.25.1
+google-api-python-client==2.181.0
+google-auth==2.40.3
+google-auth-httplib2==0.2.0
+google-ai-generativelanguage==0.6.15
+google-crc32c==1.7.1
+google-resumable-media==2.7.2
+googleapis-common-protos==1.70.0
+grpc-google-iam-v1==0.14.2
+
+# Data validation and settings
+pydantic==2.5.0
+pydantic-settings==2.1.0
+pydantic_core==2.14.1
+python-dotenv==1.0.0
+
+# Data processing and analysis
+numpy==1.26.4
+pandas==2.1.4
+pillow==10.1.0
+
+# Document processing
+PyPDF2==3.0.1
+pdf2image==1.17.0
+openpyxl==3.1.2
+reportlab==4.0.7
+python-magic==0.4.27
+
+# Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-mock==3.12.0
 pytest-cov==4.1.0
+
+# Code quality
 black==23.11.0
 isort==5.12.0
 flake8==6.1.0
-python-dotenv==1.0.0
-numpy==1.24.3
-pandas==2.1.4
-pillow==10.1.0
-PyPDF2==3.0.1
-python-magic==0.4.27
-pdf2image==1.17.0
-openpyxl==3.1.2
-reportlab==4.0.7
+
+# Additional dependencies for scripts and evaluation
+aiohttp==3.12.15
+matplotlib==3.10.6
+requests==2.32.5
