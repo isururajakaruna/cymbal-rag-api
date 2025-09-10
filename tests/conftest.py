@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import rag_config, settings
 from app.main import app
-from app.services.rag_service import RAGService
+from app.services.rag_search_service import RAGSearchService
 
 
 @pytest.fixture(scope="session")
@@ -26,14 +26,10 @@ def client():
 
 
 @pytest.fixture
-def mock_rag_service():
-    """Create a mock RAG service."""
-    service = Mock(spec=RAGService)
-    service.process_and_store_document = AsyncMock(return_value="test-file-id")
+def mock_rag_search_service():
+    """Create a mock RAG search service."""
+    service = Mock(spec=RAGSearchService)
     service.search_documents = AsyncMock()
-    service.update_document = AsyncMock(return_value=True)
-    service.delete_document = AsyncMock(return_value=True)
-    service.list_documents = AsyncMock(return_value=[])
     return service
 
 

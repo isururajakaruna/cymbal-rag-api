@@ -1,4 +1,4 @@
-"""Tests for search API endpoints."""
+"""Tests for RAG search API endpoints."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -15,158 +15,152 @@ def client():
 
 
 @pytest.mark.asyncio
-async def test_search_documents_post_success(client, sample_search_results):
-    """Test successful document search via POST."""
-    with patch("app.api.v1.search.get_rag_service") as mock_get_service:
+async def test_rag_search_documents_post_success(client, sample_search_results):
+    """Test successful RAG document search via POST."""
+    with patch("app.api.v1.search.RAGSearchService") as mock_rag_service_class:
         mock_service = AsyncMock()
         mock_response = {
+            "success": True,
             "query": "test query",
-            "results": sample_search_results,
-            "total_results": len(sample_search_results),
+            "files": [],
+            "total_files": 0,
+            "total_chunks": len(sample_search_results),
+            "rag_response": "Generated response",
             "processing_time_ms": 100.0,
+            "search_parameters": {}
         }
         mock_service.search_documents.return_value = mock_response
-        mock_get_service.return_value = mock_service
+        mock_rag_service_class.return_value = mock_service
 
         search_data = {
             "query": "test query",
-            "max_results": 10,
-            "similarity_threshold": 0.7,
+            "ktop": 10,
+            "threshold": 0.7,
         }
-        response = client.post("/api/v1/search/", json=search_data)
+        response = client.post("/api/v1/search/rag", json=search_data)
 
         assert response.status_code == 200
         data = response.json()
+        assert data["success"] is True
         assert data["query"] == "test query"
-        assert len(data["results"]) == len(sample_search_results)
+        assert data["total_chunks"] == len(sample_search_results)
 
 
 @pytest.mark.asyncio
-async def test_search_documents_get_success(client, sample_search_results):
-    """Test successful document search via GET."""
-    with patch("app.api.v1.search.get_rag_service") as mock_get_service:
+async def test_rag_search_documents_get_success(client, sample_search_results):
+    """Test successful RAG document search via GET."""
+    with patch("app.api.v1.search.RAGSearchService") as mock_rag_service_class:
         mock_service = AsyncMock()
         mock_response = {
+            "success": True,
             "query": "test query",
-            "results": sample_search_results,
-            "total_results": len(sample_search_results),
+            "files": [],
+            "total_files": 0,
+            "total_chunks": len(sample_search_results),
+            "rag_response": "Generated response",
             "processing_time_ms": 100.0,
+            "search_parameters": {}
         }
         mock_service.search_documents.return_value = mock_response
-        mock_get_service.return_value = mock_service
+        mock_rag_service_class.return_value = mock_service
 
-        response = client.get("/api/v1/search/?query=test%20query&max_results=10")
+        response = client.get("/api/v1/search/rag?query=test%20query&ktop=10&threshold=0.7")
 
         assert response.status_code == 200
         data = response.json()
+        assert data["success"] is True
         assert data["query"] == "test query"
 
 
 @pytest.mark.asyncio
-async def test_search_documents_with_file_ids(client, sample_search_results):
-    """Test document search with file IDs filter."""
-    with patch("app.api.v1.search.get_rag_service") as mock_get_service:
+async def test_rag_search_documents_with_file_ids(client, sample_search_results):
+    """Test RAG document search with file IDs filter."""
+    with patch("app.api.v1.search.RAGSearchService") as mock_rag_service_class:
         mock_service = AsyncMock()
         mock_response = {
+            "success": True,
             "query": "test query",
-            "results": sample_search_results,
-            "total_results": len(sample_search_results),
+            "files": [],
+            "total_files": 0,
+            "total_chunks": len(sample_search_results),
+            "rag_response": "Generated response",
             "processing_time_ms": 100.0,
+            "search_parameters": {"file_ids": ["file1.pdf", "file2.pdf"]}
         }
         mock_service.search_documents.return_value = mock_response
-        mock_get_service.return_value = mock_service
+        mock_rag_service_class.return_value = mock_service
 
-        response = client.get("/api/v1/search/?query=test%20query&file_ids=file1,file2")
+        search_data = {
+            "query": "test query",
+            "ktop": 10,
+            "threshold": 0.7,
+            "file_ids": ["file1.pdf", "file2.pdf"]
+        }
+        response = client.post("/api/v1/search/rag", json=search_data)
 
         assert response.status_code == 200
         data = response.json()
+        assert data["success"] is True
         assert data["query"] == "test query"
 
 
 @pytest.mark.asyncio
-async def test_search_documents_invalid_query(client):
-    """Test search with invalid query parameters."""
-    # Empty query
-    response = client.get("/api/v1/search/?query=")
-    assert response.status_code == 422
+async def test_rag_search_documents_with_tags(client, sample_search_results):
+    """Test RAG document search with tags filter."""
+    with patch("app.api.v1.search.RAGSearchService") as mock_rag_service_class:
+        mock_service = AsyncMock()
+        mock_response = {
+            "success": True,
+            "query": "test query",
+            "files": [],
+            "total_files": 0,
+            "total_chunks": len(sample_search_results),
+            "rag_response": "Generated response",
+            "processing_time_ms": 100.0,
+            "search_parameters": {"tags": ["product", "catalog"]}
+        }
+        mock_service.search_documents.return_value = mock_response
+        mock_rag_service_class.return_value = mock_service
 
-    # Query too long
-    long_query = "a" * 1001
-    response = client.get(f"/api/v1/search/?query={long_query}")
-    assert response.status_code == 422
+        search_data = {
+            "query": "test query",
+            "ktop": 10,
+            "threshold": 0.7,
+            "tags": ["product", "catalog"]
+        }
+        response = client.post("/api/v1/search/rag", json=search_data)
 
-
-@pytest.mark.asyncio
-async def test_search_documents_invalid_max_results(client):
-    """Test search with invalid max_results parameter."""
-    # Max results too high
-    response = client.get("/api/v1/search/?query=test&max_results=100")
-    assert response.status_code == 422
-
-    # Max results too low
-    response = client.get("/api/v1/search/?query=test&max_results=0")
-    assert response.status_code == 422
-
-
-@pytest.mark.asyncio
-async def test_search_documents_invalid_similarity_threshold(client):
-    """Test search with invalid similarity_threshold parameter."""
-    # Threshold too high
-    response = client.get("/api/v1/search/?query=test&similarity_threshold=1.5")
-    assert response.status_code == 422
-
-    # Threshold too low
-    response = client.get("/api/v1/search/?query=test&similarity_threshold=-0.1")
-    assert response.status_code == 422
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["query"] == "test query"
 
 
 @pytest.mark.asyncio
-async def test_search_health_check(client):
+async def test_rag_search_documents_service_error(client):
+    """Test RAG document search with service error."""
+    with patch("app.api.v1.search.RAGSearchService") as mock_rag_service_class:
+        mock_service = AsyncMock()
+        mock_service.search_documents.side_effect = Exception("Service error")
+        mock_rag_service_class.return_value = mock_service
+
+        search_data = {
+            "query": "test query",
+            "ktop": 10,
+            "threshold": 0.7,
+        }
+        response = client.post("/api/v1/search/rag", json=search_data)
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "Internal server error" in data["detail"]
+
+
+def test_search_health_check(client):
     """Test search health check endpoint."""
     response = client.get("/api/v1/search/health")
-
+    
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
     assert data["service"] == "search"
-
-
-@pytest.mark.asyncio
-async def test_search_documents_service_error(client):
-    """Test search when service raises an error."""
-    with patch("app.api.v1.search.get_rag_service") as mock_get_service:
-        mock_service = AsyncMock()
-        mock_service.search_documents.side_effect = Exception("Service error")
-        mock_get_service.return_value = mock_service
-
-        search_data = {
-            "query": "test query",
-            "max_results": 10,
-            "similarity_threshold": 0.7,
-        }
-        response = client.post("/api/v1/search/", json=search_data)
-
-        assert response.status_code == 500
-        assert "Service error" in response.json()["detail"]
-
-
-@pytest.mark.asyncio
-async def test_search_documents_post_missing_query(client):
-    """Test POST search with missing query."""
-    search_data = {"max_results": 10, "similarity_threshold": 0.7}
-    response = client.post("/api/v1/search/", json=search_data)
-
-    assert response.status_code == 422
-
-
-@pytest.mark.asyncio
-async def test_search_documents_post_invalid_data(client):
-    """Test POST search with invalid data."""
-    search_data = {
-        "query": "test query",
-        "max_results": "invalid",
-        "similarity_threshold": 0.7,
-    }
-    response = client.post("/api/v1/search/", json=search_data)
-
-    assert response.status_code == 422

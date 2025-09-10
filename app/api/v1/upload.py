@@ -272,13 +272,11 @@ async def store_embeddings_in_vector_search(embeddings: List[Dict[str, Any]], fi
     """Store embeddings in Vertex AI Vector Search."""
     try:
         # Store embeddings in Vector Search
-        success = await vector_search_service.upsert_embeddings(
-            embeddings=embeddings,
-            index_id=settings.vector_search_index_id,
-            endpoint_id=settings.vector_search_index_endpoint_id
+        vector_search_service.upsert_embeddings(
+            embeddings=embeddings
         )
         
-        return success
+        return True
     except Exception as e:
         raise RAGAPIException(f"Error storing embeddings in Vector Search: {str(e)}")
 
@@ -318,21 +316,9 @@ async def remove_existing_embeddings(filename: str) -> bool:
         # Get datapoint IDs from file metadata
         datapoint_ids = await get_datapoint_ids_from_file(filename)
         
-        if not datapoint_ids:
-            print(f"No datapoint IDs found for {filename}, trying metadata filter approach")
-            # Fallback to metadata filter approach
-            success = await vector_search_service.remove_embeddings_by_metadata(
-                metadata_filter={"filename": filename},
-                index_id=settings.vector_search_index_id,
-                endpoint_id=settings.vector_search_index_endpoint_id
-            )
-            return success
-        
         # Remove embeddings by datapoint IDs
-        success = await vector_search_service.remove_embeddings_by_ids(
-            datapoint_ids=datapoint_ids,
-            index_id=settings.vector_search_index_id,
-            endpoint_id=settings.vector_search_index_endpoint_id
+        success = vector_search_service.remove_embeddings_by_ids(
+            datapoint_ids=datapoint_ids
         )
         
         return success

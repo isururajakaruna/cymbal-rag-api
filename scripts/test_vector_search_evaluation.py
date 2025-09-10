@@ -22,7 +22,7 @@ load_dotenv()
 
 # Configuration
 API_BASE_URL = "http://localhost:8000/api/v1"
-API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "InaqhBh3P0MaJCBQnxF05DsdpWjbESpLJvoa-2tfwxI")
+API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN")
 TEST_FILE_PATH = "test_data/product_catalog.csv"
 TEST_QUERIES = {
     "related": [
@@ -86,7 +86,7 @@ def cleanup_test_file() -> bool:
     print(f"🗑️  Cleaning up test file...")
     
     filename = os.path.basename(TEST_FILE_PATH)
-    url = f"{API_BASE_URL}/upload/delete"
+    url = f"{API_BASE_URL}/upload/delete?token={API_AUTH_TOKEN}"
     params = {'filename': filename}
     
     try:

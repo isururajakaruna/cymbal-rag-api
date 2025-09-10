@@ -22,6 +22,7 @@ import google.generativeai as genai
 
 from app.core.config import settings
 from app.core.exceptions import RAGAPIException
+from app.utils.vector_search import VectorSearchService
 from app.models.schemas import (
     SearchRequest, 
     SearchResult, 
@@ -56,7 +57,12 @@ class RAGSearchService:
         
         # Initialize Discovery Engine client for reranking (if available)
         if DISCOVERY_ENGINE_AVAILABLE and discoveryengine:
-            self.discovery_client = discoveryengine.RankServiceClient()
+            try:
+                self.discovery_client = discoveryengine.RankServiceClient()
+                print("Discovery Engine client initialized successfully")
+            except Exception as e:
+                print(f"Failed to initialize Discovery Engine client: {e}")
+                self.discovery_client = None
         else:
             self.discovery_client = None
         
@@ -82,13 +88,12 @@ class RAGSearchService:
             
             # Perform vector search (no threshold initially to get more candidates)
             ktop = search_request.ktop if search_request.ktop is not None else 10
-            threshold = search_request.threshold if search_request.threshold is not None else 0.5
+            threshold = search_request.threshold if search_request.threshold is not None else 0.3
             
             # Get ktop results from vector search (no threshold initially)
             search_results = await self._perform_vector_search(
                 query_embedding=query_embedding,
                 ktop=ktop,  # Use ktop directly
-                threshold=0.0,  # No threshold for initial search
                 file_ids=search_request.file_ids,
                 tags=search_request.tags
             )
@@ -223,7 +228,7 @@ class RAGSearchService:
     async def _get_query_embedding(self, query: str) -> List[float]:
         """Get embedding for the search query using Gemini embedding model."""
         try:
-            # Use Google Generative AI with QUESTION_ANSWERING task type
+            # Use Google Generative AI with QUESTION_ANSWERING task type to match stored embeddings
             result = genai.embed_content(
                 model=settings.vertex_ai_embedding_model_name,
                 content=query,
@@ -239,32 +244,32 @@ class RAGSearchService:
         self, 
         query_embedding: List[float], 
         ktop: int, 
-        threshold: float,
         file_ids: Optional[List[str]] = None,
         tags: Optional[List[str]] = None
     ) -> List[SearchResult]:
         """Perform vector search using the existing VectorSearchService."""
         try:
-            from app.utils.vector_search import VectorSearchService
             
             # Use the existing vector search service
             vector_service = VectorSearchService()
             
             # Perform search using the existing service
-            results = await vector_service.search_similar(
+            # Convert tags to filters if provided
+            filters = None
+            if tags:
+                filters = {"tags": tags}
+            
+            results = vector_service.search_similar(
                 query_embedding=query_embedding,
-                index_id=self.index_id,
-                endpoint_id=settings.vector_search_deployed_index_id,
                 top_k=ktop,
-                filter_expression=None,
-                tags=tags
+                filters=filters
             )
             
             # Process results (no threshold filtering here)
             print(f"Vector search returned {len(results)} results")
             search_results = []
             for i, result in enumerate(results):
-                distance_score = result["score"]  # score is now distance
+                distance_score = result["distance"]  # Use distance field
                 print(f"Result {i}: distance={distance_score:.3f}")
                 
                 metadata = result.get("metadata", {})
@@ -273,11 +278,18 @@ class RAGSearchService:
                 if file_ids and metadata.get("filename") not in file_ids:
                     continue
                 
+                # Handle metadata values that might be lists
+                def get_metadata_value(key, default=""):
+                    value = metadata.get(key, default)
+                    if isinstance(value, list) and value:
+                        return value[0]  # Take first value if it's a list
+                    return value
+                
                 search_result = SearchResult(
-                    content=metadata.get("content", ""),
-                    file_id=metadata.get("filename", ""),
-                    filename=metadata.get("filename", ""),
-                    chunk_index=int(metadata.get("chunk_index", 0)),
+                    content=get_metadata_value("content", ""),
+                    file_id=get_metadata_value("filename", ""),
+                    filename=get_metadata_value("filename", ""),
+                    chunk_index=int(get_metadata_value("chunk_index", 0)),
                     distance=distance_score,
                     metadata=metadata
                 )
@@ -336,7 +348,11 @@ class RAGSearchService:
                     # Extract title from chunk metadata
                     document_title = None
                     if chunks and chunks[0].metadata and "title" in chunks[0].metadata:
-                        document_title = chunks[0].metadata["title"]
+                        title_value = chunks[0].metadata["title"]
+                        if isinstance(title_value, list) and title_value:
+                            document_title = title_value[0]  # Take first value if it's a list
+                        else:
+                            document_title = title_value
                     
                     file_info = RAGSearchFileInfo(
                         name=filename,

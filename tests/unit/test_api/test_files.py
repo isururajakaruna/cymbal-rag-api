@@ -15,171 +15,196 @@ def client():
 
 
 @pytest.mark.asyncio
-async def test_upload_file_success(client, sample_file_content):
-    """Test successful file upload."""
-    with patch("app.api.v1.files.get_rag_service") as mock_get_service:
-        mock_service = AsyncMock()
-        mock_service.process_and_store_document.return_value = "test-file-id"
-        mock_get_service.return_value = mock_service
-
-        files = {"file": ("test.txt", sample_file_content, "text/plain")}
-        response = client.post("/api/v1/files/upload", files=files)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["file_id"] == "test-file-id"
-        assert data["filename"] == "test.txt"
-        assert data["status"] == "uploaded"
-
-
-@pytest.mark.asyncio
-async def test_upload_file_unsupported_format(client, sample_file_content):
-    """Test file upload with unsupported format."""
-    files = {"file": ("test.xyz", sample_file_content, "application/xyz")}
-    response = client.post("/api/v1/files/upload", files=files)
-
-    assert response.status_code == 400
-    assert "Unsupported file format" in response.json()["detail"]
-
-
-@pytest.mark.asyncio
-async def test_upload_file_missing_filename(client, sample_file_content):
-    """Test file upload without filename."""
-    files = {"file": (None, sample_file_content, "text/plain")}
-    response = client.post("/api/v1/files/upload", files=files)
-
-    assert response.status_code == 422
-
-
-@pytest.mark.asyncio
-async def test_update_file_success(client, sample_file_content):
-    """Test successful file update."""
-    with patch("app.api.v1.files.get_rag_service") as mock_get_service:
-        mock_service = AsyncMock()
-        mock_service.update_document.return_value = True
-        mock_get_service.return_value = mock_service
-
-        files = {"file": ("updated.txt", sample_file_content, "text/plain")}
-        response = client.put("/api/v1/files/test-file-id", files=files)
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["file_id"] == "test-file-id"
-        assert data["filename"] == "updated.txt"
-        assert data["status"] == "updated"
-
-
-@pytest.mark.asyncio
-async def test_update_file_not_found(client, sample_file_content):
-    """Test file update when file not found."""
-    with patch("app.api.v1.files.get_rag_service") as mock_get_service:
-        mock_service = AsyncMock()
-        mock_service.update_document.return_value = False
-        mock_get_service.return_value = mock_service
-
-        files = {"file": ("updated.txt", sample_file_content, "text/plain")}
-        response = client.put("/api/v1/files/nonexistent-file-id", files=files)
-
-        assert response.status_code == 404
-
-
-@pytest.mark.asyncio
-async def test_delete_file_success(client):
-    """Test successful file deletion."""
-    with patch("app.api.v1.files.get_rag_service") as mock_get_service:
-        mock_service = AsyncMock()
-        mock_service.delete_document.return_value = True
-        mock_get_service.return_value = mock_service
-
-        response = client.delete("/api/v1/files/test-file-id")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "deleted successfully" in data["message"]
-
-
-@pytest.mark.asyncio
-async def test_delete_file_not_found(client):
-    """Test file deletion when file not found."""
-    with patch("app.api.v1.files.get_rag_service") as mock_get_service:
-        mock_service = AsyncMock()
-        mock_service.delete_document.return_value = False
-        mock_get_service.return_value = mock_service
-
-        response = client.delete("/api/v1/files/nonexistent-file-id")
-
-        assert response.status_code == 404
-
-
-@pytest.mark.asyncio
 async def test_list_files_success(client):
     """Test successful file listing."""
-    with patch("app.api.v1.files.get_rag_service") as mock_get_service:
-        mock_service = AsyncMock()
+    with patch("app.api.v1.files.StorageService") as mock_storage_class:
+        mock_storage = AsyncMock()
         mock_files = [
             {
-                "file_id": "file1",
-                "filename": "test1.txt",
-                "size": 100,
-                "content_type": "text/plain",
-                "created": "2023-01-01T00:00:00Z",
-                "updated": "2023-01-01T00:00:00Z",
+                "name": "test1.pdf",
+                "path": "uploads/test1.pdf",
+                "file_type": "application/pdf (.pdf)",
+                "last_updated": "2023-01-01T00:00:00Z",
+                "size": 1000,
+                "tags": ["test", "document"]
+            },
+            {
+                "name": "test2.txt",
+                "path": "uploads/test2.txt",
+                "file_type": "text/plain (.txt)",
+                "last_updated": "2023-01-02T00:00:00Z",
+                "size": 500,
+                "tags": []
             }
         ]
-        mock_service.list_documents.return_value = mock_files
-        mock_get_service.return_value = mock_service
+        mock_storage.list_files.return_value = mock_files
+        mock_storage_class.return_value = mock_storage
 
-        response = client.get("/api/v1/files/")
+        response = client.get("/api/v1/files/list")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["total_count"] == 1
-        assert len(data["files"]) == 1
-        assert data["files"][0]["file_id"] == "file1"
+        assert data["success"] is True
+        assert len(data["files"]) == 2
+        assert data["files"][0]["name"] == "test1.pdf"
 
 
 @pytest.mark.asyncio
-async def test_list_files_pagination(client):
+async def test_list_files_with_pagination(client):
     """Test file listing with pagination."""
-    with patch("app.api.v1.files.get_rag_service") as mock_get_service:
-        mock_service = AsyncMock()
+    with patch("app.api.v1.files.StorageService") as mock_storage_class:
+        mock_storage = AsyncMock()
         mock_files = [
             {
-                "file_id": f"file{i}",
-                "filename": f"test{i}.txt",
-                "size": 100,
-                "content_type": "text/plain",
-                "created": "2023-01-01T00:00:00Z",
-                "updated": "2023-01-01T00:00:00Z",
+                "name": f"test{i}.pdf",
+                "path": f"uploads/test{i}.pdf",
+                "file_type": "application/pdf (.pdf)",
+                "last_updated": "2023-01-01T00:00:00Z",
+                "size": 1000,
+                "tags": []
             }
             for i in range(5)
         ]
-        mock_service.list_documents.return_value = mock_files
-        mock_get_service.return_value = mock_service
+        mock_storage.list_files.return_value = mock_files
+        mock_storage_class.return_value = mock_storage
 
-        response = client.get("/api/v1/files/?page=1&page_size=2")
+        response = client.get("/api/v1/files/list?limit=3&offset=1")
 
         assert response.status_code == 200
         data = response.json()
-        assert data["page"] == 1
-        assert data["page_size"] == 2
-        assert len(data["files"]) == 2
+        assert data["success"] is True
+        assert data["limit"] == 3
+        assert data["offset"] == 1
 
 
 @pytest.mark.asyncio
-async def test_get_file_info_not_implemented(client):
-    """Test get file info endpoint (not implemented)."""
-    response = client.get("/api/v1/files/test-file-id")
+async def test_list_files_with_search(client):
+    """Test file listing with search query."""
+    with patch("app.api.v1.files.StorageService") as mock_storage_class:
+        mock_storage = AsyncMock()
+        mock_files = [
+            {
+                "name": "test_document.pdf",
+                "path": "uploads/test_document.pdf",
+                "file_type": "application/pdf (.pdf)",
+                "last_updated": "2023-01-01T00:00:00Z",
+                "size": 1000,
+                "tags": []
+            }
+        ]
+        mock_storage.list_files.return_value = mock_files
+        mock_storage_class.return_value = mock_storage
 
-    assert response.status_code == 501
+        response = client.get("/api/v1/files/list?search=document")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["search_query"] == "document"
 
 
 @pytest.mark.asyncio
-async def test_get_processing_status(client):
-    """Test get processing status endpoint."""
-    response = client.get("/api/v1/files/test-file-id/status")
+async def test_list_files_with_tags(client):
+    """Test file listing with tag filtering."""
+    with patch("app.api.v1.files.StorageService") as mock_storage_class:
+        mock_storage = AsyncMock()
+        mock_files = [
+            {
+                "name": "test.pdf",
+                "path": "uploads/test.pdf",
+                "file_type": "application/pdf (.pdf)",
+                "last_updated": "2023-01-01T00:00:00Z",
+                "size": 1000,
+                "tags": ["product", "catalog"]
+            }
+        ]
+        mock_storage.list_files.return_value = mock_files
+        mock_storage_class.return_value = mock_storage
 
-    assert response.status_code == 200
-    data = response.json()
-    assert data["file_id"] == "test-file-id"
-    assert data["status"] == "completed"
+        response = client.get("/api/v1/files/list?tags=product,catalog")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["tags_filter"] == ["product", "catalog"]
+
+
+@pytest.mark.asyncio
+async def test_view_file_success(client):
+    """Test successful file download."""
+    with patch("app.api.v1.files.StorageService") as mock_storage_class:
+        mock_storage = AsyncMock()
+        mock_content = b"Test file content"
+        mock_storage.download_file.return_value = mock_content
+        mock_storage_class.return_value = mock_storage
+
+        response = client.get("/api/v1/files/view?filename=test.pdf")
+
+        assert response.status_code == 200
+        assert response.content == mock_content
+        assert response.headers["content-type"] == "application/pdf"
+
+
+@pytest.mark.asyncio
+async def test_view_file_not_found(client):
+    """Test file download when file not found."""
+    with patch("app.api.v1.files.StorageService") as mock_storage_class:
+        mock_storage = AsyncMock()
+        mock_storage.download_file.side_effect = FileNotFoundError("File not found")
+        mock_storage_class.return_value = mock_storage
+
+        response = client.get("/api/v1/files/view?filename=nonexistent.pdf")
+
+        assert response.status_code == 404
+        data = response.json()
+        assert data["success"] is False
+        assert "not found" in data["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_get_embedding_stats_success(client):
+    """Test successful embedding stats retrieval."""
+    with patch("app.api.v1.files.StorageService") as mock_storage_class, \
+         patch("app.api.v1.files.VectorSearchService") as mock_vector_class:
+        
+        mock_storage = AsyncMock()
+        mock_storage.get_file_metadata.return_value = {
+            "name": "test.pdf",
+            "path": "uploads/test.pdf",
+            "file_type": "application/pdf (.pdf)",
+            "last_updated": "2023-01-01T00:00:00Z",
+            "size": 1000
+        }
+        mock_storage_class.return_value = mock_storage
+        
+        mock_vector = AsyncMock()
+        mock_vector.get_embeddings_by_metadata.return_value = {
+            "total_embeddings": 5,
+            "datapoint_ids": ["test_0", "test_1", "test_2", "test_3", "test_4"],
+            "has_embeddings": True
+        }
+        mock_vector_class.return_value = mock_vector
+
+        response = client.get("/api/v1/files/embedding-stats?filename=test.pdf")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["embedding_stats"]["total_embeddings"] == 5
+        assert data["embedding_stats"]["has_embeddings"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_embedding_stats_file_not_found(client):
+    """Test embedding stats when file not found."""
+    with patch("app.api.v1.files.StorageService") as mock_storage_class:
+        mock_storage = AsyncMock()
+        mock_storage.get_file_metadata.side_effect = FileNotFoundError("File not found")
+        mock_storage_class.return_value = mock_storage
+
+        response = client.get("/api/v1/files/embedding-stats?filename=nonexistent.pdf")
+
+        assert response.status_code == 404
+        data = response.json()
+        assert data["success"] is False
+        assert "not found" in data["error"].lower()

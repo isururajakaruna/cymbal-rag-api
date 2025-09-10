@@ -1,365 +1,330 @@
-"""Real Vector Search service using Google Cloud AI Platform."""
+"""
+Vector Search service for Vertex AI Matching Engine integration.
 
-import os
-from typing import List, Dict, Any, Optional
-from google.cloud import aiplatform
+This module provides a service for managing vector embeddings in Google Cloud's
+Vertex AI Matching Engine, including upsert, search, and delete operations.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Dict, Iterable, List, Optional, Union
+
+from google.api_core.retry import Retry
 from google.cloud import aiplatform_v1
-from google.cloud.aiplatform import MatchingEngineIndex
-from google.cloud.aiplatform_v1.types import IndexDatapoint
-import asyncio
-import json
+from google.cloud.aiplatform_v1.services.index_service import IndexServiceClient
+from google.cloud.aiplatform_v1.services.match_service import MatchServiceClient
+from google.cloud.aiplatform_v1.types import (
+    FindNeighborsRequest,
+    Index as GCPIndex,
+    IndexDatapoint,
+    RemoveDatapointsRequest,
+    UpsertDatapointsRequest,
+)
 
 from app.core.config import settings
 from app.core.exceptions import RAGAPIException
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
+def _as_list(v: Union[str, int, float, List[Any], None]) -> List[str]:
+    """Convert a value to a list of strings."""
+    if v is None:
+        return []
+    if isinstance(v, list):
+        return [str(x) for x in v]
+    return [str(v)]
+
+
+def _build_restricts(facets: Optional[Dict[str, Union[str, int, float, List[Any]]]]) -> List[IndexDatapoint.Restriction]:
+    """Convert a facets dict into Matching Engine Restriction objects."""
+    restricts: List[IndexDatapoint.Restriction] = []
+    if not facets:
+        return restricts
+    for k, v in facets.items():
+        values = _as_list(v)
+        if not values:
+            continue
+        restricts.append(IndexDatapoint.Restriction(namespace=str(k), allow_list=values))
+    return restricts
+
 
 class VectorSearchService:
-    """Real Vector Search service using Google Cloud AI Platform."""
+    """
+    Vertex AI Matching Engine service for vector search operations.
     
-    def __init__(self):
-        """Initialize the Vector Search service."""
+    This service provides methods for:
+    - Upserting embeddings to the vector index
+    - Searching for similar vectors
+    - Removing embeddings by ID or metadata filters
+    
+    Notes:
+        - Only store filterable facets in `restricts`. Keep rich metadata in your own DB keyed by `datapoint_id`.
+        - Distances returned are cosine distances; similarity = 1 - distance.
+    """
+
+    # Configuration constants
+    UPSERT_BATCH_SIZE = 500
+    DEFAULT_RETRY = Retry(
+        initial=1.0, maximum=30.0, multiplier=2.0, deadline=300.0
+    )
+
+    def __init__(self) -> None:
+        """Initialize the Vector Search service with configuration from settings."""
         self.project_id = settings.google_cloud_project_id
         self.location = settings.google_cloud_region
         self.index_id = settings.vector_search_index_id
         self.endpoint_id = settings.vector_search_index_endpoint_id
-        
-        # Initialize AI Platform
-        aiplatform.init(project=self.project_id, location=self.location)
-        
-        # Get index and endpoint resource names
+        self.api_endpoint = settings.vector_search_api_endpoint
+
+        # Optional: set in settings; if None we skip dimensionality validation
+        self.vector_dims: Optional[int] = getattr(settings, "vector_embedding_dimensions", None)
+
         self.index_name = f"projects/{self.project_id}/locations/{self.location}/indexes/{self.index_id}"
         self.endpoint_name = f"projects/{self.project_id}/locations/{self.location}/indexEndpoints/{self.endpoint_id}"
-        
-        print(f"VectorSearchService initialized for project {self.project_id}")
-        print(f"Index: {self.index_name}")
-        print(f"Endpoint: {self.endpoint_name}")
-    
-    async def upsert_embeddings(
-        self, 
-        embeddings: List[Dict[str, Any]], 
-        index_id: str, 
-        endpoint_id: str
-    ) -> bool:
-        """
-        Upsert embeddings to Vector Search.
-        
-        Args:
-            embeddings: List of embedding dictionaries with id, content, metadata, and embedding
-            index_id: Vector Search index ID
-            endpoint_id: Vector Search endpoint ID
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
+
+        # Initialize low-level clients
+        self.index_client = IndexServiceClient(client_options={"api_endpoint": self.api_endpoint})
+        self.match_client = MatchServiceClient(client_options={"api_endpoint": self.api_endpoint})
+
+        logger.info("VectorSearchService ready. index=%s endpoint=%s", self.index_name, self.endpoint_name)
+
+    def get_index_stats(self) -> Dict[str, Any]:
+        """Get statistics and metadata about the vector search index."""
         try:
-            print(f"Upserting {len(embeddings)} embeddings to Vector Search")
+            idx: GCPIndex = self.index_client.get_index(name=self.index_name, retry=self.DEFAULT_RETRY)
+            out = {
+                "index_id": self.index_id,
+                "display_name": idx.display_name,
+                "description": idx.description,
+                "metadata_schema_uri": idx.metadata_schema_uri,
+                "state": str(idx.state),
+                "create_time": str(idx.create_time),
+                "update_time": str(idx.update_time),
+                "etag": idx.etag,
+            }
+            return out
+        except Exception as e:
+            logger.exception("Failed to get index stats")
+            raise RAGAPIException(f"get_index_stats failed: {e}") from e
+
+    def _validate_dims(self, vector: List[float]) -> None:
+        """Validate that the vector has the expected number of dimensions."""
+        if self.vector_dims is not None and len(vector) != int(self.vector_dims):
+            raise RAGAPIException(
+                f"Vector has {len(vector)} dimensions; index expects {self.vector_dims}."
+            )
+
+    def upsert_embeddings(self, embeddings: List[Dict[str, Any]]) -> None:
+        """
+        Upsert datapoints to the vector search index using the high-level API.
+
+        Args:
+            embeddings: List of embedding dictionaries, each containing:
+                - id: str - Unique identifier for the datapoint
+                - embedding: List[float] - Vector embedding
+                - metadata: Dict[str, Any] - Optional metadata stored as restricts facets
+        """
+        if not embeddings:
+            return
+
+        try:
+            from google.cloud import aiplatform
+            from google.cloud.aiplatform import MatchingEngineIndex
+            
+            # Initialize AI Platform
+            aiplatform.init(project=self.project_id, location=self.location)
             
             # Get the index
             index = MatchingEngineIndex(index_name=self.index_name)
             
-            # Prepare datapoints for upsert
-            datapoints = []
-            for embedding_data in embeddings:
-                # Convert metadata to restricts format using Restriction objects
-                metadata = embedding_data.get("metadata", {})
-                restricts = []
-                
-                # Convert metadata to restricts format
-                for key, value in metadata.items():
-                    if isinstance(value, str):
-                        # Create a Restriction object for each metadata field
-                        restriction = IndexDatapoint.Restriction(
-                            namespace=key,
-                            allow_list=[value],
-                            deny_list=[]
-                        )
-                        restricts.append(restriction)
-                    else:
-                        # Convert non-string values to strings
-                        restriction = IndexDatapoint.Restriction(
-                            namespace=key,
-                            allow_list=[str(value)],
-                            deny_list=[]
-                        )
-                        restricts.append(restriction)
-                
-                datapoint = IndexDatapoint(
-                    datapoint_id=embedding_data["id"],
-                    feature_vector=embedding_data["embedding"],
-                    restricts=restricts,  # Store metadata as restricts
-                    numeric_restricts=[]  # No numeric restrictions for now
-                )
-                datapoints.append(datapoint)
-            
-            # Upsert datapoints
-            index.upsert_datapoints(datapoints=datapoints)
-            
-            print(f"Successfully upserted {len(embeddings)} datapoints to Vector Search")
-            return True
-            
+            def to_datapoint(e: Dict[str, Any]) -> IndexDatapoint:
+                dp_id = e["id"]
+                vec = e["embedding"]
+                self._validate_dims(vec)
+                restricts = _build_restricts(e.get("metadata") or {})
+                return IndexDatapoint(datapoint_id=dp_id, feature_vector=vec, restricts=restricts)
+
+            for i in range(0, len(embeddings), self.UPSERT_BATCH_SIZE):
+                batch = [to_datapoint(e) for e in embeddings[i : i + self.UPSERT_BATCH_SIZE]]
+                index.upsert_datapoints(datapoints=batch)
+                logger.info("Upserted batch %d..%d (%d)", i, i + len(batch) - 1, len(batch))
         except Exception as e:
-            print(f"Error upserting embeddings to Vector Search: {e}")
-            return False
-    
-    async def search_similar(
+            logger.exception("Upsert failed")
+            raise RAGAPIException(f"upsert_embeddings failed: {e}") from e
+
+    def search_similar(
         self,
         query_embedding: List[float],
-        index_id: str,
-        endpoint_id: str,
         top_k: int = 5,
-        filter_expression: Optional[str] = None,
-        tags: Optional[List[str]] = None
+        filters: Optional[Dict[str, Union[str, int, float, List[Any]]]] = None,
+        return_full_datapoint: bool = True,
     ) -> List[Dict[str, Any]]:
         """
-        Search for similar embeddings in Vector Search.
-        
+        Search for similar vectors using server-side filtered nearest-neighbor search.
+
         Args:
-            query_embedding: Query embedding vector
-            index_id: Vector Search index ID
-            endpoint_id: Vector Search endpoint ID
-            top_k: Number of results to return
-            filter_expression: Optional filter expression
-            
+            query_embedding: The vector to search with
+            top_k: Number of neighbors to return
+            filters: Optional dict of filterable facets (translated to server-side restricts)
+            return_full_datapoint: Whether to include restricts in response for metadata reconstruction
+
         Returns:
-            List of search results
+            List of dictionaries containing:
+                - id: str - Datapoint ID
+                - similarity: float - Similarity score (1 - distance)
+                - distance: float - Cosine distance
+                - metadata: Dict[str, Any] - Extracted metadata from restricts
         """
+        self._validate_dims(query_embedding)
+        restricts = _build_restricts(filters)
+
         try:
-            # Vector search: {len(query_embedding)}-dim query, k={top_k}
-            print(f"Searching Vector Search with {len(query_embedding)}-dim vector")
-            print(f"  Top K: {top_k}")
-            print(f"  Filter: {filter_expression}")
-            
-            # Use the correct API endpoint from GCP console
-            # The exact endpoint format from GCP console sample
-            api_endpoint = "1239478193.us-central1-630583075057.vdb.vertexai.goog"
-            client_options = {"api_endpoint": api_endpoint}
-            
-            vector_search_client = aiplatform_v1.MatchServiceClient(
-                client_options=client_options,
+            q = FindNeighborsRequest.Query(
+                datapoint=IndexDatapoint(feature_vector=query_embedding),
+                neighbor_count=top_k,
             )
-            
-            # Build FindNeighborsRequest object
-            datapoint = aiplatform_v1.IndexDatapoint(
-                feature_vector=query_embedding
+
+            resp = self.match_client.find_neighbors(
+                request=FindNeighborsRequest(
+                    index_endpoint=self.endpoint_name,
+                    deployed_index_id=settings.vector_search_deployed_index_id,
+                    queries=[q],
+                    return_full_datapoint=return_full_datapoint,
+                ),
+                retry=self.DEFAULT_RETRY,
             )
-            
-            query = aiplatform_v1.FindNeighborsRequest.Query(
-                datapoint=datapoint,
-                neighbor_count=top_k
-            )
-            
-            request = aiplatform_v1.FindNeighborsRequest(
-                index_endpoint=self.endpoint_name,
-                deployed_index_id=endpoint_id,
-                queries=[query],
-                return_full_datapoint=True,
-            )
-            
-            # Execute the request
-            response = vector_search_client.find_neighbors(request)
-            
-            # Process results
-            results = []
-            # Found {len(response.nearest_neighbors)} query results with {sum(len(qr.neighbors) for qr in response.nearest_neighbors)} neighbors
-            for query_result in response.nearest_neighbors:
-                for neighbor in query_result.neighbors:
-                    # Use distance directly (cosine distance = 1 - cosine similarity)
-                    # Lower distance = more similar
-                    result = {
-                        "id": neighbor.datapoint.datapoint_id,
-                        "score": neighbor.distance,  # Use distance as score (lower = better)
-                        "distance": neighbor.distance,  # Keep for consistency
-                        "metadata": {}
-                    }
-                    
-                    # Extract metadata from restricts field
-                    if hasattr(neighbor.datapoint, 'restricts') and neighbor.datapoint.restricts:
-                        metadata = {}
-                        for restrict in neighbor.datapoint.restricts:
-                            # Extract from Restriction object
-                            if hasattr(restrict, 'namespace') and hasattr(restrict, 'allow_list'):
-                                namespace = restrict.namespace
-                                if restrict.allow_list and len(restrict.allow_list) > 0:
-                                    value = restrict.allow_list[0]  # Take the first value
-                                    metadata[namespace] = value
-                        result["metadata"] = metadata
-                    
-                    results.append(result)
-            
-            # Apply tag filtering if tags are provided
-            if tags:
-                filtered_results = []
-                for result in results:
-                    result_tags = result.get("metadata", {}).get("tags", "")
-                    if result_tags:
-                        result_tag_list = [tag.strip() for tag in result_tags.split(",") if tag.strip()]
-                        # Check if any of the requested tags match any of the result tags
-                        if any(tag in result_tag_list for tag in tags):
-                            filtered_results.append(result)
-                    else:
-                        # If no tags in result, include it (for backward compatibility)
-                        filtered_results.append(result)
-                results = filtered_results
-            
-            # Found {len(results)} similar embeddings
+
+            results: List[Dict[str, Any]] = []
+            for qr in resp.nearest_neighbors:
+                for nb in qr.neighbors:
+                    dist = nb.distance
+                    meta: Dict[str, Union[str, List[str]]] = {}
+                    if return_full_datapoint and nb.datapoint.restricts:
+                        for r in nb.datapoint.restricts:
+                            # keep list to avoid lossy comma-joining
+                            if r.allow_list:
+                                meta[r.namespace] = list(r.allow_list)
+                    results.append(
+                        {
+                            "id": nb.datapoint.datapoint_id,
+                            "distance": dist,
+                            "metadata": meta,
+                        }
+                    )
             return results
-            
         except Exception as e:
-            print(f"Error searching Vector Search: {e}")
-            return []
-    
-    async def remove_embeddings_by_metadata(
-        self,
-        metadata_filter: Dict[str, str],
-        index_id: str,
-        endpoint_id: str
-    ) -> bool:
+            logger.exception("Search failed")
+            raise RAGAPIException(f"search_similar failed: {e}") from e
+
+    def remove_embeddings_by_ids(self, datapoint_ids: Iterable[str]) -> int:
         """
-        Remove embeddings by metadata filter.
-        
+        Remove datapoints by ID using the high-level API.
+
         Args:
-            metadata_filter: Dictionary of metadata filters
-            index_id: Vector Search index ID
-            endpoint_id: Vector Search endpoint ID
-            
+            datapoint_ids: Iterable of datapoint IDs to remove
+
         Returns:
-            bool: True if successful, False otherwise
+            Number of datapoints successfully removed
         """
+        ids = [str(x) for x in datapoint_ids if str(x)]
+        if not ids:
+            return 0
         try:
-            print(f"Removing embeddings with filter: {metadata_filter}")
-            print(f"  Index ID: {index_id}")
-            print(f"  Endpoint ID: {endpoint_id}")
+            from google.cloud import aiplatform
+            from google.cloud.aiplatform import MatchingEngineIndex
+            
+            # Initialize AI Platform
+            aiplatform.init(project=self.project_id, location=self.location)
             
             # Get the index
             index = MatchingEngineIndex(index_name=self.index_name)
             
-            # Since Vector Search doesn't support direct metadata filtering for deletion,
-            # we need to search for the embeddings first, then delete them by ID
-            
-            # First, let's search for embeddings with the filename metadata
-            filename = metadata_filter.get("filename", "")
-            if not filename:
-                print("No filename provided in metadata filter")
-                return False
-            
-            # Clean the filename to match the format used in upload
-            clean_filename = filename.replace(" ", "_").replace(":", "-").replace("/", "-")
-            
-            # Search for embeddings with this filename
-            # We'll use a dummy query to get all embeddings, then filter by metadata
-            dummy_query = [0.0] * 3072  # 3072-dimensional dummy query
-            
-            # Get the endpoint for searching
-            endpoint = MatchingEngineIndexEndpoint(index_endpoint_name=self.endpoint_name)
-            
-            # Search for a large number of embeddings to find the ones we want
-            response = endpoint.find_neighbors(
-                deployed_index_id=endpoint_id,
-                queries=[dummy_query],
-                num_neighbors=1000,  # Large number to get many results
-                return_full_datapoint=True
+            index.remove_datapoints(datapoint_ids=ids)
+            logger.info("Removed %d datapoints by ID", len(ids))
+            return len(ids)
+        except Exception as e:
+            logger.exception("Remove by IDs failed")
+            raise RAGAPIException(f"remove_embeddings_by_ids failed: {e}") from e
+
+    def remove_embeddings_by_metadata(
+        self,
+        filters: Dict[str, Union[str, int, float, List[Any]]],
+        max_candidates: int = 1000,
+        probe_vector: Optional[List[float]] = None,
+    ) -> int:
+        """
+        Remove datapoints that match the given metadata filters.
+
+        This method uses a filtered neighbor query to discover matching datapoint IDs,
+        then removes them. This is a best-effort approach since Matching Engine
+        doesn't support pure faceted browsing.
+
+        Args:
+            filters: Dict of facets to match (server-side restricts)
+            max_candidates: Maximum number of candidates to retrieve
+            probe_vector: Optional probe vector; if None, uses zero-vector of expected dimensionality
+
+        Returns:
+            Number of datapoints successfully removed
+        """
+        if not filters:
+            raise RAGAPIException("remove_embeddings_by_metadata requires non-empty filters")
+
+        # Choose a probe vector
+        if probe_vector is None:
+            if self.vector_dims is None:
+                raise RAGAPIException(
+                    "vector_embedding_dimensions is not set; provide probe_vector or set the dimension."
+                )
+            probe_vector = [0.0] * int(self.vector_dims)
+        self._validate_dims(probe_vector)
+
+        # Search with server-side restricts to gather candidate IDs
+        try:
+            q = FindNeighborsRequest.Query(
+                datapoint=IndexDatapoint(feature_vector=probe_vector),
+                neighbor_count=max_candidates,
+                restricts=_build_restricts(filters),
             )
-            
-            # Find datapoints matching the filename filter
-            datapoints_to_remove = []
-            for query_result in response:
-                for neighbor in query_result:
-                    datapoint = neighbor.datapoint
-                    
-                    # Check if metadata matches the filter
-                    if hasattr(datapoint, 'metadata') and datapoint.metadata:
-                        metadata = dict(datapoint.metadata)
-                        matches = True
-                        for key, value in metadata_filter.items():
-                            if metadata.get(key) != value:
-                                matches = False
-                                break
-                        
-                        if matches:
-                            datapoints_to_remove.append(datapoint.datapoint_id)
-                            print(f"Found matching datapoint: {datapoint.datapoint_id}")
-            
-            if not datapoints_to_remove:
-                print("No embeddings found matching the filter")
-                return True
-            
-            # Remove the matching datapoints
-            index.remove_datapoints(datapoint_ids=datapoints_to_remove)
-            
-            print(f"Successfully removed {len(datapoints_to_remove)} embeddings")
-            return True
-            
+            resp = self.match_client.find_neighbors(
+                request=FindNeighborsRequest(
+                    index_endpoint=self.endpoint_name,
+                    deployed_index_id=settings.vector_search_deployed_index_id,
+                    queries=[q],
+                    return_full_datapoint=False,
+                ),
+                retry=self.DEFAULT_RETRY,
+            )
+
+            ids: List[str] = []
+            for qr in resp.nearest_neighbors:
+                for nb in qr.neighbors:
+                    ids.append(nb.datapoint.datapoint_id)
+
+            if not ids:
+                logger.info("No datapoints matched filters; nothing to remove.")
+                return 0
+
+            req = RemoveDatapointsRequest(index=self.index_name, datapoint_ids=ids)
+            self.index_client.remove_datapoints(request=req, retry=self.DEFAULT_RETRY)
+            logger.info("Removed %d datapoints by metadata filters=%s", len(ids), filters)
+            return len(ids)
+
         except Exception as e:
-            print(f"Error removing embeddings from Vector Search: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-    
-    async def remove_embeddings_by_ids(
-        self,
-        datapoint_ids: List[str],
-        index_id: str,
-        endpoint_id: str
-    ) -> bool:
+            logger.exception("Remove by metadata failed")
+            raise RAGAPIException(f"remove_embeddings_by_metadata failed: {e}") from e
+
+    def remove_embeddings_by_filename(self, filename: str) -> int:
         """
-        Remove embeddings by datapoint IDs.
-        
+        Remove all embeddings associated with a specific filename.
+
         Args:
-            datapoint_ids: List of datapoint IDs to remove
-            index_id: Vector Search index ID
-            endpoint_id: Vector Search endpoint ID
-            
+            filename: The filename to remove embeddings for
+
         Returns:
-            bool: True if successful, False otherwise
+            Number of datapoints successfully removed
         """
-        try:
-            print(f"Removing embeddings by IDs: {datapoint_ids[:3]}...")
-            print(f"  Index ID: {index_id}")
-            print(f"  Endpoint ID: {endpoint_id}")
-            
-            # Get the index
-            index = MatchingEngineIndex(index_name=self.index_name)
-            
-            # Remove the datapoints
-            index.remove_datapoints(datapoint_ids=datapoint_ids)
-            
-            print(f"Successfully removed {len(datapoint_ids)} embeddings")
-            return True
-            
-        except Exception as e:
-            print(f"Error removing embeddings by IDs from Vector Search: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-    
-    async def get_index_stats(self, index_id: str) -> Dict[str, Any]:
-        """
-        Get statistics about the Vector Search index.
-        
-        Args:
-            index_id: Vector Search index ID
-            
-        Returns:
-            Dictionary with index statistics
-        """
-        try:
-            # Get index information
-            index = MatchingEngineIndex(index_name=self.index_name)
-            
-            stats = {
-                "index_id": index_id,
-                "display_name": index.display_name,
-                "description": index.description,
-                "metadata_schema_uri": index.metadata_schema_uri,
-                "state": str(index.state),
-                "create_time": str(index.create_time),
-                "update_time": str(index.update_time),
-                "etag": index.etag
-            }
-            
-            print(f"Index stats retrieved for {index_id}")
-            return stats
-            
-        except Exception as e:
-            print(f"Error getting index stats: {e}")
-            return {"error": str(e)}
+        return self.remove_embeddings_by_metadata(filters={"filename": filename})
